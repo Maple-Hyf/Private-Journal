@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Private Journal v1.1</title>
+<title>Private Journal v1.2 — Data Safety</title>
 <style>
 :root{
   color-scheme:light dark;
@@ -142,6 +142,46 @@ textarea{
 .guard-text{font-size:13px;color:var(--muted);line-height:1.5}
 .mobile-back{display:none}
 
+/* History */
+.history-overlay{
+  position:fixed;inset:0;background:rgba(0,0,0,.38);z-index:30;
+  display:grid;place-items:center;padding:18px
+}
+.history-card{
+  width:min(920px,100%);height:min(720px,92dvh);background:var(--panel);
+  border:1px solid var(--border);border-radius:18px;box-shadow:var(--shadow);
+  display:flex;flex-direction:column;overflow:hidden
+}
+.history-head{
+  padding:15px 16px;border-bottom:1px solid var(--border);
+  display:flex;align-items:center;justify-content:space-between;gap:12px
+}
+.history-heading{font-size:15px;font-weight:850}
+.history-sub{font-size:11px;color:var(--muted);margin-top:3px}
+.history-grid{
+  min-height:0;flex:1;display:grid;grid-template-columns:270px minmax(0,1fr)
+}
+.history-list{
+  min-height:0;overflow:auto;border-right:1px solid var(--border);padding:8px
+}
+.history-item{
+  width:100%;text-align:left;border:1px solid transparent;border-radius:9px;
+  background:transparent;color:var(--text);padding:10px;margin-bottom:4px
+}
+.history-item:hover{background:var(--soft)}
+.history-item.active{background:var(--soft2);border-color:var(--border)}
+.history-item-time{font-size:12px;font-weight:750}
+.history-item-note{font-size:10px;color:var(--muted);margin-top:3px}
+.history-preview-wrap{min-width:0;min-height:0;display:flex;flex-direction:column;padding:14px}
+.history-preview-meta{font-size:11px;color:var(--muted);margin-bottom:9px}
+.history-preview{
+  flex:1;min-height:0;width:100%;resize:none;border:1px solid var(--border);
+  border-radius:11px;background:var(--bg);color:var(--text);padding:15px;
+  font-size:15px;line-height:1.65
+}
+.history-footer{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
+.history-loading{padding:22px;color:var(--muted);font-size:12px;line-height:1.5}
+
 @media(max-width:760px){
   .app{grid-template-columns:1fr}
   .sidebar,.editor{grid-column:1;grid-row:1}
@@ -150,6 +190,9 @@ textarea{
   body.editor-open .editor{display:flex}
   .mobile-back{display:inline-block}
   .app{height:100dvh}
+  .history-card{height:94dvh}
+  .history-grid{grid-template-columns:1fr;grid-template-rows:210px minmax(0,1fr)}
+  .history-list{border-right:0;border-bottom:1px solid var(--border)}
 }
 </style>
 </head>
@@ -202,6 +245,7 @@ textarea{
       <div class="brand-row">
         <div class="brand">Private Journal</div>
         <div class="small-actions">
+          <button id="backupBtn" class="icon-btn" title="Export encrypted backup">Backup</button>
           <button id="lockBtn" class="icon-btn" title="Lock">Lock</button>
         </div>
       </div>
@@ -210,7 +254,7 @@ textarea{
         <button id="entriesTab" class="tab active">Entries</button>
         <button id="trashTab" class="tab">Trash</button>
       </div>
-      <div id="syncLine" class="syncline">Encrypted · loading… · v1.1</div>
+      <div id="syncLine" class="syncline">Encrypted · loading… · v1.2</div>
     </div>
     <div id="entryList" class="list"></div>
   </aside>
@@ -223,6 +267,7 @@ textarea{
         <div id="editorTime" class="editor-time"></div>
       </div>
       <div id="editorActions" class="editor-actions hidden">
+        <button id="historyBtn" class="icon-btn">History</button>
         <button id="copyActiveBtn" class="icon-btn">Copy</button>
         <button id="trashActiveBtn" class="icon-btn">Trash</button>
       </div>
@@ -233,6 +278,32 @@ textarea{
     </div>
   </main>
 </section>
+
+
+<div id="historyModal" class="history-overlay hidden">
+  <div class="history-card">
+    <div class="history-head">
+      <div>
+        <div class="history-heading">Version History</div>
+        <div id="historySub" class="history-sub">Encrypted versions are decrypted only in this browser.</div>
+      </div>
+      <button id="historyCloseBtn" class="icon-btn">Close</button>
+    </div>
+    <div class="history-grid">
+      <div id="historyList" class="history-list">
+        <div class="history-loading">Loading encrypted history…</div>
+      </div>
+      <div class="history-preview-wrap">
+        <div id="historyPreviewMeta" class="history-preview-meta">Select a version.</div>
+        <textarea id="historyPreview" class="history-preview" readonly></textarea>
+        <div class="history-footer">
+          <button id="historyCopyBtn" class="btn secondary" disabled>Copy version</button>
+          <button id="historyRestoreBtn" class="btn" disabled>Restore as new version</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
 
 <div id="guard" class="guard hidden">
   <div class="guard-card">
@@ -253,7 +324,7 @@ import {
 } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-auth.js";
 import {
   initializeFirestore, persistentLocalCache, persistentMultipleTabManager,
-  doc, collection, getDoc, getDocs, getDocsFromServer, onSnapshot,
+  doc, collection, getDoc, getDocFromServer, getDocs, getDocsFromServer, onSnapshot,
   setDoc, updateDoc, deleteDoc, writeBatch, serverTimestamp
 } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-firestore.js";
 
@@ -287,10 +358,13 @@ const passphraseInput = $("passphraseInput"), unlockBtn = $("unlockBtn"), unlock
 const recoveryInput = $("recoveryInput"), recoveryUnlockBtn = $("recoveryUnlockBtn");
 const showRecoveryBtn = $("showRecoveryBtn"), showPassphraseBtn = $("showPassphraseBtn");
 const passphraseBox = $("passphraseBox"), recoveryBox = $("recoveryBox"), gateSignOutBtn = $("gateSignOutBtn");
-const lockBtn = $("lockBtn"), newEntryBtn = $("newEntryBtn"), entriesTab = $("entriesTab"), trashTab = $("trashTab");
+const lockBtn = $("lockBtn"), backupBtn = $("backupBtn"), newEntryBtn = $("newEntryBtn"), entriesTab = $("entriesTab"), trashTab = $("trashTab");
 const syncLine = $("syncLine"), entryList = $("entryList"), editorTitle = $("editorTitle"), editorTime = $("editorTime");
 const editorText = $("editorText"), editorPlaceholder = $("editorPlaceholder"), editorActions = $("editorActions");
-const copyActiveBtn = $("copyActiveBtn"), trashActiveBtn = $("trashActiveBtn"), mobileBackBtn = $("mobileBackBtn");
+const historyBtn = $("historyBtn"), copyActiveBtn = $("copyActiveBtn"), trashActiveBtn = $("trashActiveBtn"), mobileBackBtn = $("mobileBackBtn");
+const historyModal = $("historyModal"), historySub = $("historySub"), historyList = $("historyList");
+const historyPreviewMeta = $("historyPreviewMeta"), historyPreview = $("historyPreview");
+const historyCloseBtn = $("historyCloseBtn"), historyCopyBtn = $("historyCopyBtn"), historyRestoreBtn = $("historyRestoreBtn");
 const guard = $("guard"), guardTitle = $("guardTitle"), guardText = $("guardText"), guardCancel = $("guardCancel"), guardConfirm = $("guardConfirm");
 
 let currentUser = null;
@@ -307,6 +381,10 @@ let guardTimer = null;
 let guardAction = null;
 let openMoveMenuId = null;
 let decryptGeneration = 0;
+let historyVersions = [];
+let selectedHistoryVersionId = null;
+let historyBodyCache = new Map();
+let historyEntryId = null;
 
 function show(el){ el.classList.remove("hidden"); }
 function hide(el){ el.classList.add("hidden"); }
@@ -374,7 +452,48 @@ function visibleEntries(){
     .filter(e => currentView==="trash" ? e.trashed : !e.trashed)
     .sort((a,b)=>(a.order??0)-(b.order??0));
 }
-function setSync(text){ syncLine.textContent="Encrypted · "+text+" · v1.1"; }
+function setSync(text){ syncLine.textContent="Encrypted · "+text+" · v1.2"; }
+
+function timestampToMs(value){
+  if(!value) return 0;
+  if(typeof value==="number") return value;
+  if(typeof value.toMillis==="function") return value.toMillis();
+  if(typeof value.seconds==="number") return value.seconds*1000 + Math.floor((value.nanoseconds||0)/1e6);
+  return 0;
+}
+
+function versionTime(data){
+  return data.clientCreatedAt || timestampToMs(data.createdAt) || 0;
+}
+
+function portableValue(value){
+  if(value===null || value===undefined) return value ?? null;
+  if(["string","number","boolean"].includes(typeof value)) return value;
+  if(Array.isArray(value)) return value.map(portableValue);
+  if(typeof value.toMillis==="function"){
+    return {$type:"firestore-timestamp",ms:value.toMillis()};
+  }
+  if(typeof value==="object"){
+    const out={};
+    for(const [k,v] of Object.entries(value)) out[k]=portableValue(v);
+    return out;
+  }
+  return String(value);
+}
+
+async function sha256Hex(text){
+  const digest=await crypto.subtle.digest("SHA-256",new TextEncoder().encode(text));
+  return Array.from(new Uint8Array(digest)).map(b=>b.toString(16).padStart(2,"0")).join("");
+}
+
+function downloadBlob(filename,contents,type="application/json;charset=utf-8"){
+  const blob=new Blob([contents],{type});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement("a");
+  a.href=url;a.download=filename;
+  document.body.appendChild(a);a.click();a.remove();
+  setTimeout(()=>URL.revokeObjectURL(url),1000);
+}
 
 async function loadCryptoConfig(){
   const snap=await getDoc(configRef());
@@ -428,6 +547,7 @@ function hardLock(){
   passphraseInput.value="";
   recoveryInput.value="";
   document.body.classList.remove("editor-open");
+  closeHistory();
   cancelGuard();
 }
 
@@ -619,6 +739,7 @@ async function renderList(){
 async function selectEntry(id){
   if(currentEntryId===id){ document.body.classList.add("editor-open"); return; }
   await flushSave();
+  closeHistory();
   cancelGuard();
   openMoveMenuId=null;
   currentEntryId=id;
@@ -645,6 +766,7 @@ function updateEditorHeader(){
 }
 
 function closeEditor(){
+  closeHistory();
   currentEntryId=null; currentDraft=""; dirty=false; editorText.value="";
   hide(editorText); show(editorPlaceholder); hide(editorActions);
   editorTitle.textContent="No entry selected"; editorTime.textContent="";
@@ -663,7 +785,7 @@ async function createEntry(){
 
   const batch=writeBatch(db);
   batch.set(versionRef(id,versionId),{
-    schemaVersion:1,iv:enc.iv,ciphertext:enc.ciphertext,
+    schemaVersion:1,iv:enc.iv,ciphertext:enc.ciphertext,reason:"created",
     clientCreatedAt:now,createdAt:serverTimestamp()
   });
   batch.set(entryRef(id),{
@@ -720,7 +842,7 @@ async function flushSave(){
 
   // Append-only encrypted revision: old versions are never overwritten.
   batch.set(versionRef(id,versionId),{
-    schemaVersion:1,iv:enc.iv,ciphertext:enc.ciphertext,
+    schemaVersion:1,iv:enc.iv,ciphertext:enc.ciphertext,reason:"autosave",
     clientCreatedAt:now,createdAt:serverTimestamp()
   });
   batch.update(entryRef(id),{
@@ -813,6 +935,277 @@ function requestPermanentDelete(id){
   );
 }
 
+
+function closeHistory(){
+  historyVersions=[];
+  selectedHistoryVersionId=null;
+  historyBodyCache.clear();
+  historyEntryId=null;
+  historyPreview.value="";
+  historyPreviewMeta.textContent="Select a version.";
+  historyCopyBtn.disabled=true;
+  historyRestoreBtn.disabled=true;
+  hide(historyModal);
+}
+
+function historyReasonLabel(reason){
+  if(reason==="history_restore") return "Restored copy";
+  if(reason==="created") return "Created";
+  if(reason==="autosave") return "Autosave";
+  return "Saved";
+}
+
+async function openHistory(){
+  if(!currentEntryId || !masterKey) return;
+  await flushSave();
+  closeHistory();
+
+  const id=currentEntryId;
+  const entry=entries.get(id);
+  if(!entry) return;
+
+  historyEntryId=id;
+  show(historyModal);
+  historySub.textContent=navigator.onLine
+    ? "Loading complete encrypted history from Firebase…"
+    : "Offline: cached history may be incomplete.";
+  historyList.innerHTML='<div class="history-loading">Loading encrypted history…</div>';
+
+  try{
+    const snap=navigator.onLine
+      ? await getDocsFromServer(versionsCol(id))
+      : await getDocs(versionsCol(id));
+
+    if(historyEntryId!==id) return;
+
+    historyVersions=snap.docs
+      .map(ds=>({id:ds.id,...ds.data()}))
+      .sort((a,b)=>versionTime(b)-versionTime(a));
+
+    historySub.textContent=(navigator.onLine ? "Complete server history" : "Offline cached history")
+      +" · "+historyVersions.length+" encrypted version"+(historyVersions.length===1?"":"s");
+
+    renderHistoryList();
+
+    const preferred=historyVersions.find(v=>v.id===entry.currentVersionId) || historyVersions[0];
+    if(preferred) await selectHistoryVersion(preferred.id);
+  }catch(err){
+    console.error(err);
+    historyList.innerHTML='<div class="history-loading">Could not load version history.</div>';
+    historySub.textContent=err.message||String(err);
+  }
+}
+
+function renderHistoryList(){
+  historyList.innerHTML="";
+  if(!historyVersions.length){
+    historyList.innerHTML='<div class="history-loading">No history versions found.</div>';
+    return;
+  }
+
+  const entry=historyEntryId ? entries.get(historyEntryId) : null;
+
+  for(const v of historyVersions){
+    const btn=document.createElement("button");
+    btn.className="history-item"+(v.id===selectedHistoryVersionId?" active":"");
+
+    const time=document.createElement("div");
+    time.className="history-item-time";
+    time.textContent=formatTime(versionTime(v)) || "Unknown time";
+
+    const note=document.createElement("div");
+    note.className="history-item-note";
+    const labels=[historyReasonLabel(v.reason)];
+    if(entry?.currentVersionId===v.id) labels.push("Current");
+    note.textContent=labels.join(" · ");
+
+    btn.append(time,note);
+    btn.addEventListener("click",()=>selectHistoryVersion(v.id));
+    historyList.appendChild(btn);
+  }
+}
+
+async function selectHistoryVersion(versionId){
+  const v=historyVersions.find(x=>x.id===versionId);
+  if(!v) return;
+
+  selectedHistoryVersionId=versionId;
+  renderHistoryList();
+  historyPreview.value="";
+  historyPreviewMeta.textContent="Decrypting locally…";
+  historyCopyBtn.disabled=true;
+  historyRestoreBtn.disabled=true;
+
+  try{
+    let body=historyBodyCache.get(versionId);
+    if(body===undefined){
+      body=await decryptPayload(v.iv,v.ciphertext);
+      historyBodyCache.set(versionId,body);
+    }
+
+    if(selectedHistoryVersionId!==versionId) return;
+    historyPreview.value=body;
+    historyPreviewMeta.textContent=
+      (formatTime(versionTime(v)) || "Unknown time")+" · "+historyReasonLabel(v.reason);
+    historyCopyBtn.disabled=false;
+    historyRestoreBtn.disabled=false;
+  }catch(err){
+    console.error(err);
+    historyPreviewMeta.textContent="Could not decrypt this version.";
+  }
+}
+
+async function restoreSelectedHistory(){
+  if(!historyEntryId || !selectedHistoryVersionId || !masterKey) return;
+  const body=historyBodyCache.get(selectedHistoryVersionId);
+  if(body===undefined) return;
+
+  const id=historyEntryId;
+  const e=entries.get(id);
+  if(!e) return;
+
+  historyRestoreBtn.disabled=true;
+  setSync("restoring historical version…");
+
+  try{
+    const versionId=makeId(), now=Date.now();
+    const enc=await encryptText(body);
+    const batch=writeBatch(db);
+
+    // Restore is non-destructive: create a brand-new encrypted version.
+    batch.set(versionRef(id,versionId),{
+      schemaVersion:1,
+      iv:enc.iv,
+      ciphertext:enc.ciphertext,
+      reason:"history_restore",
+      restoredFromVersionId:selectedHistoryVersionId,
+      clientCreatedAt:now,
+      createdAt:serverTimestamp()
+    });
+
+    batch.update(entryRef(id),{
+      schemaVersion:2,
+      currentVersionId:versionId,
+      latestIv:enc.iv,
+      latestCiphertext:enc.ciphertext,
+      clientUpdatedAt:now,
+      updatedAt:serverTimestamp()
+    });
+
+    await batch.commit();
+
+    e.schemaVersion=2;
+    e.currentVersionId=versionId;
+    e.latestIv=enc.iv;
+    e.latestCiphertext=enc.ciphertext;
+    e.clientUpdatedAt=now;
+    e.body=body;
+    e.bodyLoaded=true;
+
+    if(currentEntryId===id){
+      currentDraft=body;
+      editorText.value=body;
+      dirty=false;
+      updateEditorHeader();
+    }
+
+    closeHistory();
+    renderList();
+    setSync("history restored as new version");
+  }catch(err){
+    console.error(err);
+    setSync("history restore error");
+    historyRestoreBtn.disabled=false;
+  }
+}
+
+async function exportEncryptedBackup(){
+  if(!currentUser || !masterKey) return;
+
+  if(!navigator.onLine){
+    setSync("backup requires online connection");
+    return;
+  }
+
+  await flushSave();
+  backupBtn.disabled=true;
+  setSync("building encrypted backup…");
+
+  try{
+    // Server-only reads ensure the backup isn't silently built from an incomplete cache.
+    const [cfgSnap, entriesSnap]=await Promise.all([
+      getDocFromServer(configRef()),
+      getDocsFromServer(entriesCol())
+    ]);
+
+    if(!cfgSnap.exists()) throw new Error("Encryption configuration not found on server.");
+
+    const exportedEntries=[];
+    let versionCount=0;
+
+    for(const ds of entriesSnap.docs){
+      const versionsSnap=await getDocsFromServer(versionsCol(ds.id));
+      const versions=versionsSnap.docs.map(vs=>({
+        id:vs.id,
+        data:portableValue(vs.data())
+      }));
+      versionCount+=versions.length;
+
+      exportedEntries.push({
+        id:ds.id,
+        data:portableValue(ds.data()),
+        versions
+      });
+
+      setSync(`backup ${exportedEntries.length}/${entriesSnap.size} entries…`);
+    }
+
+    const payload={
+      format:"private-journal-encrypted-backup",
+      formatVersion:1,
+      appVersion:"1.2",
+      exportedAt:new Date().toISOString(),
+      note:"Journal plaintext, Journal Passphrase, and Recovery Key are not included. Entry ciphertext and encrypted version history are included.",
+      cryptoConfig:portableValue(cfgSnap.data()),
+      entries:exportedEntries
+    };
+
+    const payloadJson=JSON.stringify(payload);
+    const checksum=await sha256Hex(payloadJson);
+    const envelope={
+      checksumAlgorithm:"SHA-256",
+      checksum,
+      payload
+    };
+    const pretty=JSON.stringify(envelope,null,2);
+
+    const stamp=new Date().toISOString().replace(/[:.]/g,"-");
+    downloadBlob(`private-journal-encrypted-backup-${stamp}.json`,pretty);
+
+    setSync(`backup downloaded · ${entriesSnap.size} entries · ${versionCount} versions`);
+  }catch(err){
+    console.error(err);
+    setSync("backup failed");
+    alert("Encrypted backup failed: "+(err.message||String(err)));
+  }finally{
+    backupBtn.disabled=false;
+  }
+}
+
+historyCloseBtn.addEventListener("click",closeHistory);
+historyModal.addEventListener("click",ev=>{ if(ev.target===historyModal) closeHistory(); });
+historyBtn.addEventListener("click",openHistory);
+historyCopyBtn.addEventListener("click",async()=>{
+  if(!selectedHistoryVersionId) return;
+  const body=historyBodyCache.get(selectedHistoryVersionId);
+  if(body===undefined) return;
+  await navigator.clipboard.writeText(body);
+  historyCopyBtn.textContent="Copied ✓";
+  setTimeout(()=>historyCopyBtn.textContent="Copy version",800);
+});
+historyRestoreBtn.addEventListener("click",restoreSelectedHistory);
+backupBtn.addEventListener("click",exportEncryptedBackup);
+
 async function permanentDelete(id){
   setSync("deleting all versions…");
   const snap=await getDocsFromServer(versionsCol(id));
@@ -868,12 +1261,12 @@ function updateTabs(){
 }
 
 entriesTab.addEventListener("click",async()=>{
-  await flushSave();cancelGuard();currentView="entries";openMoveMenuId=null;updateTabs();
+  await flushSave();closeHistory();cancelGuard();currentView="entries";openMoveMenuId=null;updateTabs();
   if(currentEntryId && entries.get(currentEntryId)?.trashed) closeEditor();
   renderList();
 });
 trashTab.addEventListener("click",async()=>{
-  await flushSave();cancelGuard();currentView="trash";openMoveMenuId=null;updateTabs();
+  await flushSave();closeHistory();cancelGuard();currentView="trash";openMoveMenuId=null;updateTabs();
   if(currentEntryId && !entries.get(currentEntryId)?.trashed) closeEditor();
   renderList();
 });
