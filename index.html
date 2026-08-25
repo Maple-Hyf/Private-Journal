@@ -8,7 +8,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="Private Journal">
 <link rel="manifest" href="./manifest.webmanifest">
-<title>Private Journal v1.4 — PWA Polish</title>
+<title>Private Journal v1.4.1 — Safer Trash Delete</title>
 <style>
 :root{
   color-scheme:light dark;
@@ -339,7 +339,7 @@ textarea{
         <button id="entriesTab" class="tab active">Entries</button>
         <button id="trashTab" class="tab">Trash</button>
       </div>
-      <div id="syncLine" class="syncline">Encrypted · loading… · v1.4</div>
+      <div id="syncLine" class="syncline">Encrypted · loading… · v1.4.1</div>
     </div>
     <div id="entryList" class="list"></div>
   </aside>
@@ -750,7 +750,7 @@ function visibleEntries(){
     .filter(e => currentView==="trash" ? e.trashed : !e.trashed)
     .sort((a,b)=>(a.order??0)-(b.order??0));
 }
-function setSync(text){ syncLine.textContent="Encrypted · "+text+" · v1.4"; }
+function setSync(text){ syncLine.textContent="Encrypted · "+text+" · v1.4.1"; }
 
 function timestampToMs(value){
   if(!value) return 0;
@@ -1230,7 +1230,8 @@ function requestPermanentDelete(id){
   startGuard(
     "Delete permanently?",
     "After confirmation, the entry and all encrypted version history will be removed from Firebase. This cannot be restored from Trash.",
-    ()=>permanentDelete(id)
+    ()=>permanentDelete(id),
+    30
   );
 }
 
@@ -1760,7 +1761,7 @@ async function exportEncryptedBackup(){
     const payload={
       format:"private-journal-encrypted-backup",
       formatVersion:1,
-      appVersion:"1.4",
+      appVersion:"1.4.1",
       exportedAt:new Date().toISOString(),
       note:"Journal plaintext, Journal Passphrase, and Recovery Key are not included. Entry ciphertext and encrypted version history are included.",
       cryptoConfig:portableValue(cfgSnap.data()),
@@ -1821,12 +1822,12 @@ async function permanentDelete(id){
   setSync("permanently deleted");
 }
 
-function startGuard(title,text,action){
+function startGuard(title,text,action,countdownSeconds=5){
   cancelGuard();
   guardAction=action;
   guardTitle.textContent=title; guardText.textContent=text;
   show(guard);
-  let n=5;
+  let n=countdownSeconds;
   guardConfirm.disabled=true;
   guardConfirm.textContent=`Confirm in ${n}s`;
   guardTimer=setInterval(()=>{
