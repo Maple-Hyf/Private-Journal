@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Private Journal v1.2 — Data Safety</title>
+<title>Private Journal v1.3 — Disaster Recovery</title>
 <style>
 :root{
   color-scheme:light dark;
@@ -182,6 +182,32 @@ textarea{
 .history-footer{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
 .history-loading{padding:22px;color:var(--muted);font-size:12px;line-height:1.5}
 
+/* Disaster recovery */
+.restore-overlay{
+  position:fixed;inset:0;background:rgba(0,0,0,.42);z-index:40;
+  display:grid;place-items:center;padding:18px
+}
+.restore-card{
+  width:min(640px,100%);max-height:92dvh;overflow:auto;background:var(--panel);
+  border:1px solid var(--border);border-radius:18px;padding:22px;box-shadow:var(--shadow)
+}
+.restore-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px}
+.restore-title{font-size:18px;font-weight:850}
+.restore-note{font-size:12px;color:var(--muted);line-height:1.55;margin-top:5px}
+.filebox{
+  margin-top:16px;border:1px dashed var(--border);border-radius:12px;padding:14px;background:var(--soft)
+}
+.filebox input{min-height:auto;border:0;padding:0;background:transparent}
+.restore-summary{
+  margin-top:14px;border:1px solid var(--border);border-radius:11px;padding:12px;background:var(--soft);
+  font-size:12px;line-height:1.55;color:var(--muted)
+}
+.restore-summary strong{color:var(--text)}
+.restore-divider{border-top:1px solid var(--border);margin:18px 0}
+.restore-progress{font-size:12px;color:var(--muted);line-height:1.5;margin-top:10px}
+.restore-danger{color:var(--danger)}
+.restore-ok{color:var(--ok)}
+
 @media(max-width:760px){
   .app{grid-template-columns:1fr}
   .sidebar,.editor{grid-column:1;grid-row:1}
@@ -233,6 +259,7 @@ textarea{
     </div>
 
     <div class="actions">
+      <button id="restoreOpenBtn" class="btn secondary">Restore encrypted backup</button>
       <button id="gateSignOutBtn" class="btn secondary">Sign out</button>
     </div>
     <div id="unlockMsg" class="msg">Locked.</div>
@@ -254,7 +281,7 @@ textarea{
         <button id="entriesTab" class="tab active">Entries</button>
         <button id="trashTab" class="tab">Trash</button>
       </div>
-      <div id="syncLine" class="syncline">Encrypted · loading… · v1.2</div>
+      <div id="syncLine" class="syncline">Encrypted · loading… · v1.3</div>
     </div>
     <div id="entryList" class="list"></div>
   </aside>
@@ -279,6 +306,68 @@ textarea{
   </main>
 </section>
 
+
+
+<div id="restoreModal" class="restore-overlay hidden">
+  <div class="restore-card">
+    <div class="restore-head">
+      <div>
+        <div class="restore-title">Disaster Recovery</div>
+        <div class="restore-note">
+          Import is intentionally conservative. The backup is validated locally first.
+          A new restore is allowed only when the target journal contains no entries.
+          Interrupted restores can be resumed with the same backup file.
+        </div>
+      </div>
+      <button id="restoreCloseBtn" class="icon-btn">Close</button>
+    </div>
+
+    <div class="filebox">
+      <label for="restoreFileInput">Encrypted backup JSON</label>
+      <input id="restoreFileInput" type="file" accept=".json,application/json">
+    </div>
+
+    <div id="restoreSummary" class="restore-summary">
+      Choose a Private Journal encrypted backup.
+    </div>
+
+    <div id="restoreVerifySection" class="hidden">
+      <div class="restore-divider"></div>
+      <div class="restore-note">
+        Before anything is uploaded, prove that one of your keys can unwrap this backup's master key.
+      </div>
+
+      <div id="restorePassBox">
+        <label for="restorePassInput">Journal Passphrase</label>
+        <input id="restorePassInput" type="password" autocomplete="current-password">
+        <div class="actions">
+          <button id="restoreVerifyPassBtn" class="btn" disabled>Verify backup</button>
+          <button id="restoreUseRecoveryBtn" class="linkbtn">Use Recovery Key instead</button>
+        </div>
+      </div>
+
+      <div id="restoreRecoveryBox" class="hidden">
+        <label for="restoreRecoveryInput">Recovery Key</label>
+        <input id="restoreRecoveryInput" type="text" autocomplete="off" autocapitalize="off" spellcheck="false">
+        <div class="actions">
+          <button id="restoreVerifyRecoveryBtn" class="btn" disabled>Verify backup</button>
+          <button id="restoreUsePassBtn" class="linkbtn">Use Journal Passphrase</button>
+        </div>
+      </div>
+
+      <div id="restoreVerifyMsg" class="msg hidden"></div>
+    </div>
+
+    <div id="restoreCommitSection" class="hidden">
+      <div class="restore-divider"></div>
+      <div id="restoreTargetMsg" class="restore-summary"></div>
+      <div class="actions">
+        <button id="restoreCommitBtn" class="btn danger" disabled>Restore to Firebase</button>
+      </div>
+      <div id="restoreProgress" class="restore-progress"></div>
+    </div>
+  </div>
+</div>
 
 <div id="historyModal" class="history-overlay hidden">
   <div class="history-card">
@@ -325,7 +414,7 @@ import {
 import {
   initializeFirestore, persistentLocalCache, persistentMultipleTabManager,
   doc, collection, getDoc, getDocFromServer, getDocs, getDocsFromServer, onSnapshot,
-  setDoc, updateDoc, deleteDoc, writeBatch, serverTimestamp
+  setDoc, updateDoc, deleteDoc, writeBatch, serverTimestamp, Timestamp
 } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-firestore.js";
 
 const firebaseConfig = {
@@ -365,6 +454,12 @@ const historyBtn = $("historyBtn"), copyActiveBtn = $("copyActiveBtn"), trashAct
 const historyModal = $("historyModal"), historySub = $("historySub"), historyList = $("historyList");
 const historyPreviewMeta = $("historyPreviewMeta"), historyPreview = $("historyPreview");
 const historyCloseBtn = $("historyCloseBtn"), historyCopyBtn = $("historyCopyBtn"), historyRestoreBtn = $("historyRestoreBtn");
+const restoreOpenBtn = $("restoreOpenBtn"), restoreModal = $("restoreModal"), restoreCloseBtn = $("restoreCloseBtn");
+const restoreFileInput = $("restoreFileInput"), restoreSummary = $("restoreSummary"), restoreVerifySection = $("restoreVerifySection");
+const restorePassBox = $("restorePassBox"), restorePassInput = $("restorePassInput"), restoreVerifyPassBtn = $("restoreVerifyPassBtn");
+const restoreUseRecoveryBtn = $("restoreUseRecoveryBtn"), restoreRecoveryBox = $("restoreRecoveryBox"), restoreRecoveryInput = $("restoreRecoveryInput");
+const restoreVerifyRecoveryBtn = $("restoreVerifyRecoveryBtn"), restoreUsePassBtn = $("restoreUsePassBtn"), restoreVerifyMsg = $("restoreVerifyMsg");
+const restoreCommitSection = $("restoreCommitSection"), restoreTargetMsg = $("restoreTargetMsg"), restoreCommitBtn = $("restoreCommitBtn"), restoreProgress = $("restoreProgress");
 const guard = $("guard"), guardTitle = $("guardTitle"), guardText = $("guardText"), guardCancel = $("guardCancel"), guardConfirm = $("guardConfirm");
 
 let currentUser = null;
@@ -385,6 +480,12 @@ let historyVersions = [];
 let selectedHistoryVersionId = null;
 let historyBodyCache = new Map();
 let historyEntryId = null;
+let restoreEnvelope = null;
+let restorePayload = null;
+let restoreChecksum = null;
+let restoreVerified = false;
+let restoreCanCommit = false;
+let restoreResume = false;
 
 function show(el){ el.classList.remove("hidden"); }
 function hide(el){ el.classList.add("hidden"); }
@@ -430,7 +531,142 @@ async function decryptPayload(iv,ciphertext){
   const obj=JSON.parse(new TextDecoder().decode(bytes));
   return typeof obj.body==="string" ? obj.body : "";
 }
+
+async function decryptPayloadWithKey(iv,ciphertext,key){
+  const bytes=await decryptBytes(unb64(ciphertext),unb64(iv),key);
+  const obj=JSON.parse(new TextDecoder().decode(bytes));
+  return typeof obj.body==="string" ? obj.body : "";
+}
+
+async function unwrapMasterFromBackupWithPassphrase(cfg,passphrase){
+  const iterations=Number(cfg.iterations || PBKDF2_ITERATIONS);
+  if(!Number.isInteger(iterations) || iterations < 100000 || iterations > 5000000){
+    throw new Error("Unsupported PBKDF2 iteration count in backup.");
+  }
+
+  const material=await crypto.subtle.importKey(
+    "raw",
+    new TextEncoder().encode(passphrase),
+    "PBKDF2",
+    false,
+    ["deriveKey"]
+  );
+
+  const passKey=await crypto.subtle.deriveKey(
+    {name:"PBKDF2",salt:unb64(cfg.passphraseSalt),iterations,hash:"SHA-256"},
+    material,
+    {name:"AES-GCM",length:256},
+    false,
+    ["decrypt"]
+  );
+
+  return decryptBytes(
+    unb64(cfg.passphraseWrappedMaster),
+    unb64(cfg.passphraseIv),
+    passKey
+  );
+}
+
+async function unwrapMasterFromBackupWithRecovery(cfg,recoveryText){
+  if(cfg.recoveryEncoding!=="HEX-256"){
+    throw new Error("This backup does not use the supported HEX-256 Recovery Key format.");
+  }
+  const recoveryBytes=parseHex(recoveryText);
+  const recoveryKey=await importAesKey(recoveryBytes,["decrypt"]);
+  recoveryBytes.fill(0);
+
+  return decryptBytes(
+    unb64(cfg.recoveryWrappedMaster),
+    unb64(cfg.recoveryIv),
+    recoveryKey
+  );
+}
+
+function restorePortableValue(value){
+  if(value===null || value===undefined) return value ?? null;
+  if(Array.isArray(value)) return value.map(restorePortableValue);
+
+  if(typeof value==="object"){
+    if(value.$type==="firestore-timestamp" && Number.isFinite(value.ms)){
+      return Timestamp.fromMillis(value.ms);
+    }
+    const out={};
+    for(const [k,v] of Object.entries(value)) out[k]=restorePortableValue(v);
+    return out;
+  }
+
+  return value;
+}
+
+function validateDocId(id,label){
+  if(typeof id!=="string" || !id || id.includes("/") || id.length>1500){
+    throw new Error(`Invalid ${label} document id.`);
+  }
+}
+
+function validateBackupPayload(payload){
+  if(!payload || typeof payload!=="object") throw new Error("Backup payload is missing.");
+  if(payload.format!=="private-journal-encrypted-backup") throw new Error("This is not a Private Journal encrypted backup.");
+  if(payload.formatVersion!==1) throw new Error("Unsupported backup format version.");
+  if(!payload.cryptoConfig || typeof payload.cryptoConfig!=="object") throw new Error("Backup crypto configuration is missing.");
+  if(!Array.isArray(payload.entries)) throw new Error("Backup entries are missing.");
+
+  const cfg=payload.cryptoConfig;
+  const requiredCfg=[
+    "passphraseSalt","passphraseIv","passphraseWrappedMaster",
+    "recoveryIv","recoveryWrappedMaster"
+  ];
+  for(const key of requiredCfg){
+    if(typeof cfg[key]!=="string" || !cfg[key]) throw new Error(`Backup crypto field ${key} is missing.`);
+  }
+
+  let versionCount=0;
+  const seenEntries=new Set();
+
+  for(const entry of payload.entries){
+    if(!entry || typeof entry!=="object") throw new Error("Invalid backup entry.");
+    validateDocId(entry.id,"entry");
+    if(seenEntries.has(entry.id)) throw new Error("Duplicate entry id in backup.");
+    seenEntries.add(entry.id);
+
+    if(!entry.data || typeof entry.data!=="object") throw new Error("Backup entry data is missing.");
+    if(!Array.isArray(entry.versions)) throw new Error("Backup entry versions are missing.");
+
+    const seenVersions=new Set();
+    for(const version of entry.versions){
+      if(!version || typeof version!=="object") throw new Error("Invalid backup version.");
+      validateDocId(version.id,"version");
+      if(seenVersions.has(version.id)) throw new Error("Duplicate version id in backup entry.");
+      seenVersions.add(version.id);
+
+      if(!version.data || typeof version.data!=="object") throw new Error("Backup version data is missing.");
+      if(typeof version.data.iv!=="string" || typeof version.data.ciphertext!=="string"){
+        throw new Error("Encrypted version payload is incomplete.");
+      }
+      versionCount++;
+    }
+  }
+
+  return {entryCount:payload.entries.length,versionCount};
+}
+
+async function verifyBackupMaster(masterBytes){
+  if(!(masterBytes instanceof Uint8Array) || masterBytes.length!==32){
+    throw new Error("Backup key did not unwrap to a 256-bit master key.");
+  }
+
+  const key=await importAesKey(masterBytes);
+  const sampleEntry=restorePayload.entries.find(e=>Array.isArray(e.versions) && e.versions.length>0);
+
+  if(sampleEntry){
+    const sample=sampleEntry.versions[0].data;
+    await decryptPayloadWithKey(sample.iv,sample.ciphertext,key);
+  }
+
+  masterBytes.fill(0);
+}
 function configRef(){ return doc(db,"users",currentUser.uid,"config","crypto"); }
+function restoreStateRef(){ return doc(db,"users",currentUser.uid,"system","restore"); }
 function entriesCol(){ return collection(db,"users",currentUser.uid,"entries"); }
 function entryRef(id){ return doc(db,"users",currentUser.uid,"entries",id); }
 function versionsCol(id){ return collection(db,"users",currentUser.uid,"entries",id,"versions"); }
@@ -452,7 +688,7 @@ function visibleEntries(){
     .filter(e => currentView==="trash" ? e.trashed : !e.trashed)
     .sort((a,b)=>(a.order??0)-(b.order??0));
 }
-function setSync(text){ syncLine.textContent="Encrypted · "+text+" · v1.2"; }
+function setSync(text){ syncLine.textContent="Encrypted · "+text+" · v1.3"; }
 
 function timestampToMs(value){
   if(!value) return 0;
@@ -548,6 +784,7 @@ function hardLock(){
   recoveryInput.value="";
   document.body.classList.remove("editor-open");
   closeHistory();
+  closeRestoreModal();
   cancelGuard();
 }
 
@@ -936,6 +1173,299 @@ function requestPermanentDelete(id){
 }
 
 
+
+function resetRestoreModal(){
+  restoreEnvelope=null;
+  restorePayload=null;
+  restoreChecksum=null;
+  restoreVerified=false;
+  restoreCanCommit=false;
+  restoreResume=false;
+
+  restoreFileInput.value="";
+  restorePassInput.value="";
+  restoreRecoveryInput.value="";
+  restoreSummary.textContent="Choose a Private Journal encrypted backup.";
+  restoreProgress.textContent="";
+  restoreCommitBtn.disabled=true;
+  hide(restoreVerifySection);
+  hide(restoreCommitSection);
+  hide(restoreVerifyMsg);
+  show(restorePassBox);
+  hide(restoreRecoveryBox);
+}
+
+function openRestoreModal(){
+  resetRestoreModal();
+  show(restoreModal);
+}
+
+function closeRestoreModal(){
+  resetRestoreModal();
+  hide(restoreModal);
+}
+
+async function inspectRestoreTarget(){
+  if(!currentUser || !restoreChecksum) throw new Error("Sign in first.");
+  if(!navigator.onLine) throw new Error("Restore requires an online connection.");
+
+  const [markerSnap,entriesSnap]=await Promise.all([
+    getDocFromServer(restoreStateRef()).catch(()=>null),
+    getDocsFromServer(entriesCol())
+  ]);
+
+  const marker=markerSnap && markerSnap.exists() ? markerSnap.data() : null;
+
+  if(marker && marker.status==="in_progress"){
+    if(marker.checksum===restoreChecksum){
+      restoreResume=true;
+      restoreCanCommit=true;
+      restoreTargetMsg.innerHTML=
+        "<strong>Interrupted restore detected.</strong><br>"+
+        "This backup matches the existing restore marker. It is safe to resume; writes are idempotent.";
+      return;
+    }
+
+    restoreCanCommit=false;
+    restoreTargetMsg.innerHTML=
+      "<span class='restore-danger'><strong>A different restore is already incomplete.</strong></span><br>"+
+      "Use the backup whose checksum matches that interrupted restore.";
+    return;
+  }
+
+  if(entriesSnap.size>0){
+    restoreCanCommit=false;
+    restoreTargetMsg.innerHTML=
+      "<span class='restore-danger'><strong>Restore blocked:</strong> this Firebase journal already contains "+
+      entriesSnap.size+" entr"+(entriesSnap.size===1?"y":"ies")+".</span><br>"+
+      "Private Journal will not overwrite or merge into a non-empty journal.";
+    return;
+  }
+
+  restoreResume=false;
+  restoreCanCommit=true;
+  restoreTargetMsg.innerHTML=
+    "<strong>Target is empty.</strong><br>"+
+    "A full restore can proceed. Any existing encryption configuration will be replaced only after all entry/version batches finish.";
+}
+
+async function loadRestoreFile(file){
+  if(!file) return;
+  restoreVerified=false;
+  restoreCanCommit=false;
+  restoreCommitBtn.disabled=true;
+  hide(restoreVerifySection);
+  hide(restoreCommitSection);
+  hide(restoreVerifyMsg);
+  restoreProgress.textContent="";
+
+  try{
+    restoreSummary.textContent="Reading and validating backup…";
+    const raw=await file.text();
+    const envelope=JSON.parse(raw);
+
+    if(!envelope || envelope.checksumAlgorithm!=="SHA-256" || typeof envelope.checksum!=="string" || !envelope.payload){
+      throw new Error("Backup envelope or SHA-256 checksum is missing.");
+    }
+
+    const calculated=await sha256Hex(JSON.stringify(envelope.payload));
+    if(calculated.toLowerCase()!==envelope.checksum.toLowerCase()){
+      throw new Error("SHA-256 checksum mismatch. The backup may be damaged or altered.");
+    }
+
+    const counts=validateBackupPayload(envelope.payload);
+
+    restoreEnvelope=envelope;
+    restorePayload=envelope.payload;
+    restoreChecksum=envelope.checksum.toLowerCase();
+
+    restoreSummary.innerHTML=
+      "<span class='restore-ok'><strong>Backup integrity verified ✓</strong></span><br>"+
+      "Exported: "+String(restorePayload.exportedAt || "unknown")+"<br>"+
+      "Entries: "+counts.entryCount+" · encrypted versions: "+counts.versionCount+"<br>"+
+      "SHA-256: "+restoreChecksum;
+
+    show(restoreVerifySection);
+  }catch(err){
+    console.error(err);
+    restoreEnvelope=null;restorePayload=null;restoreChecksum=null;
+    restoreSummary.innerHTML=
+      "<span class='restore-danger'><strong>Backup rejected.</strong></span><br>"+
+      (err.message||String(err));
+  }
+}
+
+async function finishBackupVerification(masterBytes){
+  await verifyBackupMaster(masterBytes);
+  restoreVerified=true;
+  setMsg(restoreVerifyMsg,"Backup key and encrypted content verified locally ✓","ok");
+  show(restoreCommitSection);
+
+  await inspectRestoreTarget();
+  restoreCommitBtn.disabled=!restoreCanCommit;
+
+  if(restoreCanCommit){
+    restoreProgress.textContent=restoreResume
+      ? "Ready to resume. No existing restored document will be duplicated."
+      : "Ready. Restore will use small Firestore batches and can be resumed if interrupted.";
+  }else{
+    restoreProgress.textContent="No data has been written.";
+  }
+}
+
+async function runRestore(){
+  if(!restorePayload || !restoreChecksum || !restoreVerified || !restoreCanCommit) return;
+  if(!navigator.onLine) throw new Error("Restore requires an online connection.");
+
+  restoreCommitBtn.disabled=true;
+  restoreCloseBtn.disabled=true;
+  restoreProgress.textContent="Creating resumable restore marker…";
+
+  const counts=validateBackupPayload(restorePayload);
+
+  // Marker first: if anything after this fails, the same backup can resume safely.
+  await setDoc(restoreStateRef(),{
+    status:"in_progress",
+    checksum:restoreChecksum,
+    backupFormatVersion:restorePayload.formatVersion,
+    entryCount:counts.entryCount,
+    versionCount:counts.versionCount,
+    exportedAt:String(restorePayload.exportedAt || ""),
+    startedAt:serverTimestamp(),
+    updatedAt:serverTimestamp()
+  },{merge:true});
+
+  const ops=[];
+
+  // Versions first, then each entry pointer document.
+  for(const entry of restorePayload.entries){
+    for(const version of entry.versions){
+      ops.push({
+        ref:versionRef(entry.id,version.id),
+        data:restorePortableValue(version.data)
+      });
+    }
+    ops.push({
+      ref:entryRef(entry.id),
+      data:restorePortableValue(entry.data)
+    });
+  }
+
+  const BATCH_SIZE=180;
+  for(let i=0;i<ops.length;i+=BATCH_SIZE){
+    if(!navigator.onLine) throw new Error("Connection lost. Re-open Restore later with the same backup to resume.");
+
+    const batch=writeBatch(db);
+    const chunk=ops.slice(i,i+BATCH_SIZE);
+    for(const op of chunk) batch.set(op.ref,op.data);
+    await batch.commit();
+
+    const done=Math.min(i+BATCH_SIZE,ops.length);
+    const pct=ops.length ? Math.round(done/ops.length*100) : 100;
+    restoreProgress.textContent=`Restoring encrypted documents… ${done}/${ops.length} (${pct}%)`;
+  }
+
+  // Crypto config is deliberately last. Until this succeeds, the restored journal
+  // is not presented as a normal unlockable journal.
+  restoreProgress.textContent="Writing encryption configuration last…";
+  await setDoc(configRef(),restorePortableValue(restorePayload.cryptoConfig));
+
+  // Verify key document + entry count from server before clearing marker.
+  restoreProgress.textContent="Verifying restored Firebase data…";
+  const [cfgCheck,entriesCheck]=await Promise.all([
+    getDocFromServer(configRef()),
+    getDocsFromServer(entriesCol())
+  ]);
+
+  if(!cfgCheck.exists()) throw new Error("Restore verification failed: crypto configuration missing.");
+  if(entriesCheck.size!==counts.entryCount){
+    throw new Error(`Restore verification failed: expected ${counts.entryCount} entries, found ${entriesCheck.size}.`);
+  }
+
+  await deleteDoc(restoreStateRef());
+
+  restoreProgress.innerHTML=
+    "<span class='restore-ok'><strong>Restore complete ✓</strong></span><br>"+
+    counts.entryCount+" entr"+(counts.entryCount===1?"y":"ies")+" and "+
+    counts.versionCount+" encrypted version"+(counts.versionCount===1?"":"s")+" restored.";
+
+  cryptoConfig=restorePortableValue(restorePayload.cryptoConfig);
+  restoreCloseBtn.disabled=false;
+  restoreCommitBtn.disabled=true;
+  setMsg(unlockMsg,"Disaster recovery complete. Close this window and unlock with your Journal Passphrase or Recovery Key.","ok");
+}
+
+restoreOpenBtn.addEventListener("click",openRestoreModal);
+restoreCloseBtn.addEventListener("click",closeRestoreModal);
+restoreModal.addEventListener("click",ev=>{ if(ev.target===restoreModal && !restoreCloseBtn.disabled) closeRestoreModal(); });
+restoreFileInput.addEventListener("change",()=>loadRestoreFile(restoreFileInput.files?.[0]));
+
+restorePassInput.addEventListener("input",()=>restoreVerifyPassBtn.disabled=!restorePassInput.value);
+restoreRecoveryInput.addEventListener("input",()=>restoreVerifyRecoveryBtn.disabled=!restoreRecoveryInput.value.trim());
+
+restoreUseRecoveryBtn.addEventListener("click",()=>{
+  hide(restorePassBox);show(restoreRecoveryBox);restoreRecoveryInput.focus();
+});
+restoreUsePassBtn.addEventListener("click",()=>{
+  hide(restoreRecoveryBox);show(restorePassBox);restorePassInput.focus();
+});
+
+restoreVerifyPassBtn.addEventListener("click",async()=>{
+  if(!restorePayload) return;
+  restoreVerifyPassBtn.disabled=true;
+  show(restoreVerifyMsg);
+  setMsg(restoreVerifyMsg,"Verifying locally…");
+  try{
+    const masterBytes=await unwrapMasterFromBackupWithPassphrase(restorePayload.cryptoConfig,restorePassInput.value);
+    restorePassInput.value="";
+    await finishBackupVerification(masterBytes);
+  }catch(err){
+    console.error(err);
+    setMsg(restoreVerifyMsg,"Passphrase did not verify this backup.","bad");
+    restoreVerifyPassBtn.disabled=false;
+  }
+});
+
+restoreVerifyRecoveryBtn.addEventListener("click",async()=>{
+  if(!restorePayload) return;
+  restoreVerifyRecoveryBtn.disabled=true;
+  show(restoreVerifyMsg);
+  setMsg(restoreVerifyMsg,"Verifying locally…");
+  try{
+    const masterBytes=await unwrapMasterFromBackupWithRecovery(restorePayload.cryptoConfig,restoreRecoveryInput.value);
+    restoreRecoveryInput.value="";
+    await finishBackupVerification(masterBytes);
+  }catch(err){
+    console.error(err);
+    setMsg(restoreVerifyMsg,"Recovery Key did not verify this backup.","bad");
+    restoreVerifyRecoveryBtn.disabled=false;
+  }
+});
+
+restoreCommitBtn.addEventListener("click",()=>{
+  if(!restoreCanCommit || !restoreVerified) return;
+
+  startGuard(
+    restoreResume ? "Resume disaster recovery?" : "Restore encrypted backup?",
+    restoreResume
+      ? "The matching interrupted restore will continue. Existing restored documents may be safely written again."
+      : "This target contains no journal entries. The encrypted backup will be written to Firebase. The encryption configuration is written last.",
+    async()=>{
+      try{
+        await runRestore();
+      }catch(err){
+        console.error(err);
+        restoreCloseBtn.disabled=false;
+        restoreCommitBtn.disabled=false;
+        restoreProgress.innerHTML=
+          "<span class='restore-danger'><strong>Restore interrupted.</strong></span><br>"+
+          (err.message||String(err))+
+          "<br>Use the same backup file later to resume. Do not delete the restore marker manually.";
+      }
+    }
+  );
+});
+
 function closeHistory(){
   historyVersions=[];
   selectedHistoryVersionId=null;
@@ -1163,7 +1693,7 @@ async function exportEncryptedBackup(){
     const payload={
       format:"private-journal-encrypted-backup",
       formatVersion:1,
-      appVersion:"1.2",
+      appVersion:"1.3",
       exportedAt:new Date().toISOString(),
       note:"Journal plaintext, Journal Passphrase, and Recovery Key are not included. Entry ciphertext and encrypted version history are included.",
       cryptoConfig:portableValue(cfgSnap.data()),
@@ -1298,6 +1828,7 @@ showRecoveryBtn.addEventListener("click",()=>{hide(passphraseBox);show(recoveryB
 showPassphraseBtn.addEventListener("click",()=>{hide(recoveryBox);show(passphraseBox);passphraseInput.focus()});
 
 unlockBtn.addEventListener("click",async()=>{
+  if(!cryptoConfig){ setMsg(unlockMsg,"No active encryption configuration is loaded. Use Restore encrypted backup if needed.","warn"); return; }
   unlockBtn.disabled=true;setMsg(unlockMsg,"Decrypting locally…");
   try{
     await unlockWithPassphrase(passphraseInput.value);
@@ -1310,6 +1841,7 @@ unlockBtn.addEventListener("click",async()=>{
   }
 });
 recoveryUnlockBtn.addEventListener("click",async()=>{
+  if(!cryptoConfig){ setMsg(unlockMsg,"No active encryption configuration is loaded. Use Restore encrypted backup if needed.","warn"); return; }
   recoveryUnlockBtn.disabled=true;setMsg(unlockMsg,"Decrypting with Recovery Key…");
   try{
     await unlockWithRecovery(recoveryInput.value);
@@ -1348,13 +1880,32 @@ onAuthStateChanged(auth,async user=>{
   }
 
   hide(authGate);hide(appView);show(unlockGate);
-  setMsg(unlockMsg,"Loading encrypted key configuration…");
+  setMsg(unlockMsg,"Checking recovery state…");
   try{
+    const restoreSnap=await getDoc(restoreStateRef());
+    if(restoreSnap.exists() && restoreSnap.data()?.status==="in_progress"){
+      const marker=restoreSnap.data();
+      setMsg(
+        unlockMsg,
+        "An interrupted disaster recovery is detected. Choose Restore encrypted backup and select the same backup file to resume.",
+        "warn"
+      );
+      cryptoConfig=null;
+      return;
+    }
+
+    setMsg(unlockMsg,"Loading encrypted key configuration…");
     await loadCryptoConfig();
     setMsg(unlockMsg,"Locked. Enter your Journal Passphrase.");
     passphraseInput.focus();
   }catch(err){
-    console.error(err);setMsg(unlockMsg,err.message||String(err),"bad");
+    console.error(err);
+    cryptoConfig=null;
+    setMsg(
+      unlockMsg,
+      (err.message||String(err))+" You can still use Restore encrypted backup if this is a disaster-recovery situation.",
+      "bad"
+    );
   }
 });
 </script>
