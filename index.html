@@ -3,132 +3,259 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Private Journal — Recovery Migration</title>
+<title>Private Journal</title>
 <style>
 :root{
   color-scheme:light dark;
   --bg:light-dark(#f4f4f1,#151514);
-  --card:light-dark(#fff,#1d1d1b);
-  --soft:light-dark(#f0f0ec,#252522);
-  --text:light-dark(#181818,#f3f3ef);
-  --muted:light-dark(#70706a,#aaa9a2);
-  --border:light-dark(#deded8,#363632);
+  --panel:light-dark(#ffffff,#1d1d1b);
+  --soft:light-dark(#f1f1ed,#262623);
+  --soft2:light-dark(#e9e9e4,#2d2d29);
+  --text:light-dark(#181818,#f2f2ee);
+  --muted:light-dark(#71716b,#aaa9a3);
+  --border:light-dark(#deded8,#383834);
+  --danger:light-dark(#9d3434,#ef9292);
   --ok:light-dark(#2f6f3d,#8bd59d);
-  --bad:light-dark(#9b3434,#f09a9a);
+  --warn:light-dark(#875c13,#e8c779);
+  --shadow:0 10px 30px rgba(0,0,0,.06);
 }
 *{box-sizing:border-box}
-body{margin:0;background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif}
-.wrap{width:min(680px,calc(100% - 28px));margin:42px auto 70px}
-.card{background:var(--card);border:1px solid var(--border);border-radius:18px;padding:26px}
-.eyebrow{text-transform:uppercase;letter-spacing:.16em;color:var(--muted);font-size:12px;margin-bottom:8px}
-h1{margin:0 0 8px;font-size:28px;letter-spacing:-.4px}
-h2{margin:0 0 8px;font-size:20px}
-.sub,.note{color:var(--muted);font-size:14px;line-height:1.55}
-.section{margin-top:22px;padding-top:20px;border-top:1px solid var(--border)}
-label{display:block;font-size:13px;font-weight:700;margin:13px 0 7px}
-input{width:100%;min-height:48px;padding:12px 14px;border:1px solid var(--border);border-radius:12px;background:var(--card);color:var(--text);font:inherit;font-size:16px;outline:none}
-.actions{display:flex;gap:9px;flex-wrap:wrap;margin-top:16px}
-button{min-height:44px;border:0;border-radius:11px;padding:10px 15px;font:inherit;font-weight:750;cursor:pointer;background:var(--text);color:var(--bg)}
-button.secondary{background:var(--soft);color:var(--text);border:1px solid var(--border)}
-button:disabled{opacity:.4;cursor:not-allowed}
-.status{margin-top:16px;padding:13px 14px;border:1px solid var(--border);border-radius:12px;background:var(--soft);font-size:13px;line-height:1.5}
-.ok{color:var(--ok)} .bad{color:var(--bad)}
-.recovery{margin-top:14px;padding:15px;border:1px solid var(--border);border-radius:12px;background:var(--soft);font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:15px;line-height:1.65;word-break:break-all;user-select:all}
+html,body{height:100%}
+body{
+  margin:0;background:var(--bg);color:var(--text);
+  font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+}
+button,input,textarea{font:inherit}
+button{cursor:pointer}
 .hidden{display:none!important}
-@media(max-width:560px){.wrap{margin-top:18px}.card{padding:20px}}
+
+/* Gate */
+.gate{
+  min-height:100%;display:grid;place-items:center;padding:20px;
+}
+.gate-card{
+  width:min(520px,100%);background:var(--panel);border:1px solid var(--border);
+  border-radius:20px;padding:28px;box-shadow:var(--shadow)
+}
+.eyebrow{font-size:11px;text-transform:uppercase;letter-spacing:.18em;color:var(--muted);margin-bottom:8px}
+h1{font-size:28px;margin:0 0 8px;letter-spacing:-.5px}
+.gate p{margin:0 0 18px;color:var(--muted);font-size:14px;line-height:1.55}
+label{display:block;font-size:12px;font-weight:750;margin:14px 0 7px}
+input{
+  width:100%;min-height:46px;border:1px solid var(--border);border-radius:11px;
+  background:var(--panel);color:var(--text);padding:11px 13px;outline:none
+}
+input:focus,textarea:focus{border-color:var(--muted)}
+.actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:14px}
+.btn{
+  min-height:42px;border:0;border-radius:10px;padding:9px 14px;
+  background:var(--text);color:var(--bg);font-weight:750
+}
+.btn.secondary{background:var(--soft);color:var(--text);border:1px solid var(--border)}
+.btn.danger{background:var(--danger);color:white}
+.btn:disabled{opacity:.42;cursor:not-allowed}
+.msg{margin-top:14px;padding:11px 12px;border:1px solid var(--border);border-radius:10px;background:var(--soft);font-size:12px;line-height:1.45;color:var(--muted)}
+.msg.ok{color:var(--ok)} .msg.bad{color:var(--danger)} .msg.warn{color:var(--warn)}
+.linkbtn{background:none;border:0;color:var(--muted);padding:0;text-decoration:underline;font-size:12px}
+
+/* App */
+.app{
+  height:100%;display:grid;grid-template-columns:320px minmax(0,1fr);
+}
+.sidebar{
+  min-width:0;border-right:1px solid var(--border);background:var(--panel);
+  display:flex;flex-direction:column
+}
+.sidebar-top{padding:16px;border-bottom:1px solid var(--border)}
+.brand-row{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.brand{font-weight:800;letter-spacing:-.2px}
+.small-actions{display:flex;gap:6px}
+.icon-btn{
+  min-width:36px;min-height:36px;padding:7px 9px;border:1px solid var(--border);
+  border-radius:9px;background:var(--soft);color:var(--text);font-weight:700
+}
+.new-btn{
+  width:100%;margin-top:12px;min-height:42px;border:0;border-radius:10px;
+  background:var(--text);color:var(--bg);font-weight:800
+}
+.tabs{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:10px}
+.tab{
+  min-height:36px;border:1px solid var(--border);border-radius:9px;
+  background:var(--panel);color:var(--muted);font-weight:700
+}
+.tab.active{background:var(--soft2);color:var(--text)}
+.syncline{font-size:11px;color:var(--muted);margin-top:9px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.list{overflow:auto;padding:8px;flex:1}
+.empty-list{padding:30px 14px;text-align:center;color:var(--muted);font-size:13px;line-height:1.5}
+.row{
+  position:relative;border:1px solid transparent;border-radius:11px;padding:11px 8px 11px 11px;
+  margin-bottom:4px;display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px;align-items:start
+}
+.row:hover{background:var(--soft)}
+.row.active{background:var(--soft2);border-color:var(--border)}
+.row-main{min-width:0;cursor:pointer}
+.row-title{font-size:14px;font-weight:750;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.row-time{font-size:11px;color:var(--muted);margin-top:4px}
+.row-tools{display:flex;gap:4px}
+.mini{
+  min-width:31px;height:31px;border:1px solid var(--border);border-radius:8px;
+  background:var(--panel);color:var(--muted);padding:5px;font-size:12px
+}
+.menu{
+  position:absolute;right:8px;top:46px;z-index:5;background:var(--panel);
+  border:1px solid var(--border);border-radius:10px;padding:5px;box-shadow:var(--shadow);
+  min-width:128px
+}
+.menu button{
+  width:100%;border:0;background:transparent;color:var(--text);text-align:left;
+  border-radius:7px;padding:8px 9px;font-size:12px
+}
+.menu button:hover{background:var(--soft)}
+.editor{
+  min-width:0;display:flex;flex-direction:column;background:var(--bg)
+}
+.editor-head{
+  min-height:59px;padding:10px 16px;border-bottom:1px solid var(--border);
+  display:flex;justify-content:space-between;align-items:center;gap:12px
+}
+.editor-meta{min-width:0}
+.editor-title{font-size:14px;font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.editor-time{font-size:11px;color:var(--muted);margin-top:3px}
+.editor-actions{display:flex;gap:7px;flex-shrink:0}
+.editor-body{flex:1;min-height:0;padding:0}
+textarea{
+  width:100%;height:100%;resize:none;border:0;outline:none;background:var(--bg);
+  color:var(--text);padding:28px clamp(20px,5vw,70px);font-size:17px;line-height:1.72
+}
+.placeholder{
+  height:100%;display:grid;place-items:center;color:var(--muted);font-size:13px;text-align:center;padding:30px
+}
+.guard{
+  position:fixed;inset:0;background:rgba(0,0,0,.34);display:grid;place-items:center;
+  padding:20px;z-index:20
+}
+.guard-card{
+  width:min(420px,100%);background:var(--panel);border:1px solid var(--border);
+  border-radius:16px;padding:20px;box-shadow:var(--shadow)
+}
+.guard-title{font-weight:800;margin-bottom:7px}
+.guard-text{font-size:13px;color:var(--muted);line-height:1.5}
+.mobile-back{display:none}
+
+@media(max-width:760px){
+  .app{grid-template-columns:1fr}
+  .sidebar,.editor{grid-column:1;grid-row:1}
+  .editor{display:none}
+  body.editor-open .sidebar{display:none}
+  body.editor-open .editor{display:flex}
+  .mobile-back{display:inline-block}
+  .app{height:100dvh}
+}
 </style>
 </head>
 <body>
-<main class="wrap">
-<section class="card">
-  <div class="eyebrow">Private Journal</div>
-  <h1>Recovery Key migration</h1>
-  <div class="sub">
-    This page upgrades the first Recovery Key format without changing your journal master key.
-    The legacy recovery wrapper is retained during the migration.
+
+<section id="authGate" class="gate">
+  <div class="gate-card">
+    <div class="eyebrow">Private Journal</div>
+    <h1>Private, encrypted, yours.</h1>
+    <p>Journal text is encrypted in your browser before it is written to Firebase.</p>
+    <button id="signInBtn" class="btn">Sign in with Google</button>
+    <div id="authMsg" class="msg">Checking account…</div>
   </div>
+</section>
 
-  <div id="authSection" class="section">
-    <h2>1. Account</h2>
-    <div id="accountText" class="note">Checking sign-in…</div>
-    <div class="actions">
-      <button id="signInBtn" class="hidden">Sign in with Google</button>
-      <button id="signOutBtn" class="secondary hidden">Sign out</button>
-    </div>
-  </div>
+<section id="unlockGate" class="gate hidden">
+  <div class="gate-card">
+    <div class="eyebrow">Private Journal</div>
+    <h1>Unlock Journal</h1>
+    <p>Your Journal Passphrase is used locally to recover the master encryption key.</p>
 
-  <div id="unlockSection" class="section hidden">
-    <h2>2. Unlock with Journal Passphrase</h2>
-    <div class="note">This recovers the existing master key locally. Your passphrase is never uploaded.</div>
-    <label for="unlockPass">Journal Passphrase</label>
-    <input id="unlockPass" type="password" autocomplete="current-password">
-    <div class="actions">
-      <button id="unlockBtn" disabled>Unlock</button>
-    </div>
-    <div id="unlockMessage" class="status hidden"></div>
-  </div>
-
-  <div id="migrateSection" class="section hidden">
-    <h2>3. Generate the new Recovery Key</h2>
-    <div class="note">
-      The new key uses 64 hexadecimal characters grouped with hyphens, so the separator can never be confused with key data.
-      Your old recovery wrapper remains stored as a fallback for now.
-    </div>
-    <div class="actions">
-      <button id="generateBtn">Generate new Recovery Key</button>
-    </div>
-
-    <div id="newKeyArea" class="hidden">
-      <div id="newRecoveryDisplay" class="recovery"></div>
+    <div id="passphraseBox">
+      <label for="passphraseInput">Journal Passphrase</label>
+      <input id="passphraseInput" type="password" autocomplete="current-password">
       <div class="actions">
-        <button id="copyBtn" class="secondary">Copy key</button>
-        <button id="downloadBtn" class="secondary">Download .txt</button>
+        <button id="unlockBtn" class="btn" disabled>Unlock</button>
+        <button id="showRecoveryBtn" class="linkbtn">Use Recovery Key instead</button>
       </div>
+    </div>
 
-      <label for="verifyInput">Paste the new Recovery Key back here</label>
-      <input id="verifyInput" type="text" autocomplete="off" autocapitalize="off" spellcheck="false">
+    <div id="recoveryBox" class="hidden">
+      <label for="recoveryInput">Recovery Key</label>
+      <input id="recoveryInput" type="text" autocomplete="off" autocapitalize="off" spellcheck="false">
       <div class="actions">
-        <button id="verifyBtn" disabled>Verify new Recovery Key</button>
+        <button id="recoveryUnlockBtn" class="btn" disabled>Unlock with Recovery Key</button>
+        <button id="showPassphraseBtn" class="linkbtn">Use Journal Passphrase</button>
       </div>
-      <div id="verifyMessage" class="status hidden"></div>
+    </div>
 
-      <div id="commitArea" class="hidden">
-        <div class="actions">
-          <button id="commitBtn">Commit migration to Firebase</button>
+    <div class="actions">
+      <button id="gateSignOutBtn" class="btn secondary">Sign out</button>
+    </div>
+    <div id="unlockMsg" class="msg">Locked.</div>
+  </div>
+</section>
+
+<section id="appView" class="app hidden">
+  <aside class="sidebar">
+    <div class="sidebar-top">
+      <div class="brand-row">
+        <div class="brand">Private Journal</div>
+        <div class="small-actions">
+          <button id="lockBtn" class="icon-btn" title="Lock">Lock</button>
         </div>
       </div>
+      <button id="newEntryBtn" class="new-btn">+ New Entry</button>
+      <div class="tabs">
+        <button id="entriesTab" class="tab active">Entries</button>
+        <button id="trashTab" class="tab">Trash</button>
+      </div>
+      <div id="syncLine" class="syncline">Encrypted · loading…</div>
     </div>
-  </div>
+    <div id="entryList" class="list"></div>
+  </aside>
 
-  <div id="freshTestSection" class="section hidden">
-    <h2>4. Test the new Recovery Key</h2>
-    <div class="note">
-      Migration is already stored. Paste the new Recovery Key here to independently decrypt the master key from Firebase.
+  <main class="editor">
+    <header class="editor-head">
+      <div class="editor-meta">
+        <button id="mobileBackBtn" class="icon-btn mobile-back">←</button>
+        <div id="editorTitle" class="editor-title">No entry selected</div>
+        <div id="editorTime" class="editor-time"></div>
+      </div>
+      <div id="editorActions" class="editor-actions hidden">
+        <button id="copyActiveBtn" class="icon-btn">Copy</button>
+        <button id="trashActiveBtn" class="icon-btn">Trash</button>
+      </div>
+    </header>
+    <div class="editor-body">
+      <div id="editorPlaceholder" class="placeholder">Create or select an entry.</div>
+      <textarea id="editorText" class="hidden" spellcheck="true"></textarea>
     </div>
-    <label for="freshRecoveryInput">New Recovery Key</label>
-    <input id="freshRecoveryInput" type="text" autocomplete="off" autocapitalize="off" spellcheck="false">
-    <div class="actions">
-      <button id="freshRecoveryBtn" disabled>Test new Recovery Key</button>
-    </div>
-    <div id="freshRecoveryMessage" class="status hidden"></div>
-  </div>
-
-  <div id="doneSection" class="section hidden">
-    <h2>Migration verified ✓</h2>
-    <div class="note">
-      The new Recovery Key successfully decrypted the same master key from Firebase.
-      The old recovery wrapper is still retained as a temporary fallback.
-    </div>
-  </div>
-
-  <div id="globalMessage" class="status">Loading Firebase…</div>
+  </main>
 </section>
-</main>
+
+<div id="guard" class="guard hidden">
+  <div class="guard-card">
+    <div id="guardTitle" class="guard-title"></div>
+    <div id="guardText" class="guard-text"></div>
+    <div class="actions">
+      <button id="guardCancel" class="btn secondary">Cancel</button>
+      <button id="guardConfirm" class="btn danger" disabled>Confirm in 5s</button>
+    </div>
+  </div>
+</div>
 
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-app.js";
-import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-auth.js";
-import { getFirestore, doc, getDoc, setDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-firestore.js";
+import {
+  getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged,
+  setPersistence, browserSessionPersistence
+} from "https://www.gstatic.com/firebasejs/12.2.1/firebase-auth.js";
+import {
+  initializeFirestore, persistentLocalCache, persistentMultipleTabManager,
+  doc, collection, getDoc, getDocs, getDocsFromServer, onSnapshot,
+  setDoc, updateDoc, deleteDoc, writeBatch, serverTimestamp
+} from "https://www.gstatic.com/firebasejs/12.2.1/firebase-firestore.js";
 
 const firebaseConfig = {
   apiKey: "AIzaSyDdrVBF-4iHS9gcryZyA6zvlcHf98UWzk0",
@@ -140,258 +267,670 @@ const firebaseConfig = {
 };
 
 const PBKDF2_ITERATIONS = 600000;
+const SAVE_DELAY_MS = 900;
+
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
-const db = getFirestore(app);
+await setPersistence(auth, browserSessionPersistence);
+
+const db = initializeFirestore(app, {
+  localCache: persistentLocalCache({
+    tabManager: persistentMultipleTabManager()
+  })
+});
 const provider = new GoogleAuthProvider();
 
 const $ = id => document.getElementById(id);
-const accountText = $("accountText"), signInBtn = $("signInBtn"), signOutBtn = $("signOutBtn");
-const unlockSection = $("unlockSection"), unlockPass = $("unlockPass"), unlockBtn = $("unlockBtn"), unlockMessage = $("unlockMessage");
-const migrateSection = $("migrateSection"), generateBtn = $("generateBtn"), newKeyArea = $("newKeyArea"), newRecoveryDisplay = $("newRecoveryDisplay");
-const copyBtn = $("copyBtn"), downloadBtn = $("downloadBtn"), verifyInput = $("verifyInput"), verifyBtn = $("verifyBtn"), verifyMessage = $("verifyMessage");
-const commitArea = $("commitArea"), commitBtn = $("commitBtn");
-const freshTestSection = $("freshTestSection"), freshRecoveryInput = $("freshRecoveryInput"), freshRecoveryBtn = $("freshRecoveryBtn"), freshRecoveryMessage = $("freshRecoveryMessage");
-const doneSection = $("doneSection"), globalMessage = $("globalMessage");
+const authGate = $("authGate"), unlockGate = $("unlockGate"), appView = $("appView");
+const signInBtn = $("signInBtn"), authMsg = $("authMsg");
+const passphraseInput = $("passphraseInput"), unlockBtn = $("unlockBtn"), unlockMsg = $("unlockMsg");
+const recoveryInput = $("recoveryInput"), recoveryUnlockBtn = $("recoveryUnlockBtn");
+const showRecoveryBtn = $("showRecoveryBtn"), showPassphraseBtn = $("showPassphraseBtn");
+const passphraseBox = $("passphraseBox"), recoveryBox = $("recoveryBox"), gateSignOutBtn = $("gateSignOutBtn");
+const lockBtn = $("lockBtn"), newEntryBtn = $("newEntryBtn"), entriesTab = $("entriesTab"), trashTab = $("trashTab");
+const syncLine = $("syncLine"), entryList = $("entryList"), editorTitle = $("editorTitle"), editorTime = $("editorTime");
+const editorText = $("editorText"), editorPlaceholder = $("editorPlaceholder"), editorActions = $("editorActions");
+const copyActiveBtn = $("copyActiveBtn"), trashActiveBtn = $("trashActiveBtn"), mobileBackBtn = $("mobileBackBtn");
+const guard = $("guard"), guardTitle = $("guardTitle"), guardText = $("guardText"), guardCancel = $("guardCancel"), guardConfirm = $("guardConfirm");
 
 let currentUser = null;
-let cfg = null;
-let masterBytes = null;
-let pendingRecoveryBytes = null;
-let pendingRecoveryText = null;
-let pendingWrapped = null;
+let cryptoConfig = null;
+let masterKey = null;
+let entries = new Map();
+let currentEntryId = null;
+let currentView = "entries";
+let unsubscribeEntries = null;
+let saveTimer = null;
+let currentDraft = "";
+let dirty = false;
+let guardTimer = null;
+let guardAction = null;
+let openMoveMenuId = null;
+let decryptGeneration = 0;
 
 function show(el){ el.classList.remove("hidden"); }
 function hide(el){ el.classList.add("hidden"); }
-function msg(el,text,kind=""){ el.textContent=text; el.className="status"+(kind?" "+kind:""); show(el); }
-
-function bytesToBase64(bytes){
+function setMsg(el,text,kind=""){ el.textContent=text; el.className="msg"+(kind?" "+kind:""); }
+function b64(bytes){
   let binary="";
-  for(let i=0;i<bytes.length;i+=0x8000) binary += String.fromCharCode(...bytes.subarray(i,i+0x8000));
+  for(let i=0;i<bytes.length;i+=0x8000) binary+=String.fromCharCode(...bytes.subarray(i,i+0x8000));
   return btoa(binary);
 }
-function base64ToBytes(str){
+function unb64(str){
   const binary=atob(str), out=new Uint8Array(binary.length);
   for(let i=0;i<binary.length;i++) out[i]=binary.charCodeAt(i);
   return out;
 }
-function formatHex(bytes){
-  const raw=Array.from(bytes).map(b=>b.toString(16).padStart(2,"0")).join("").toUpperCase();
-  return raw.match(/.{1,4}/g).join("-");
-}
 function parseHex(text){
   const raw=text.trim().replace(/[\s-]/g,"").toUpperCase();
-  if(!/^[0-9A-F]{64}$/.test(raw)) throw new Error("Expected exactly 64 hexadecimal characters.");
+  if(!/^[0-9A-F]{64}$/.test(raw)) throw new Error("Recovery Key format is invalid.");
   const out=new Uint8Array(32);
   for(let i=0;i<32;i++) out[i]=parseInt(raw.slice(i*2,i*2+2),16);
   return out;
 }
-function equalBytes(a,b){
-  if(a.length!==b.length) return false;
-  let diff=0; for(let i=0;i<a.length;i++) diff|=a[i]^b[i];
-  return diff===0;
-}
-
 async function derivePassphraseKey(passphrase,salt){
   const material=await crypto.subtle.importKey("raw",new TextEncoder().encode(passphrase),"PBKDF2",false,["deriveKey"]);
   return crypto.subtle.deriveKey(
-    {name:"PBKDF2",salt,iterations:PBKDF2_ITERATIONS,hash:"SHA-256"},
-    material,{name:"AES-GCM",length:256},false,["encrypt","decrypt"]
+    {name:"PBKDF2",salt,iterations:(cryptoConfig?.iterations || PBKDF2_ITERATIONS),hash:"SHA-256"},
+    material,{name:"AES-GCM",length:256},false,["decrypt"]
   );
 }
-async function importRecoveryKey(bytes){
-  if(bytes.length!==32) throw new Error("Recovery key must be 32 bytes.");
-  return crypto.subtle.importKey("raw",bytes,{name:"AES-GCM"},false,["encrypt","decrypt"]);
+async function importAesKey(bytes,usage=["encrypt","decrypt"]){
+  return crypto.subtle.importKey("raw",bytes,{name:"AES-GCM"},false,usage);
 }
-async function encryptBytes(data,key){
+async function decryptBytes(ciphertext,iv,key){
+  return new Uint8Array(await crypto.subtle.decrypt({name:"AES-GCM",iv},key,ciphertext));
+}
+async function encryptText(text){
   const iv=crypto.getRandomValues(new Uint8Array(12));
-  const ciphertext=new Uint8Array(await crypto.subtle.encrypt({name:"AES-GCM",iv},key,data));
-  return {iv,ciphertext};
+  const plaintext=new TextEncoder().encode(JSON.stringify({body:text}));
+  const ciphertext=new Uint8Array(await crypto.subtle.encrypt({name:"AES-GCM",iv},masterKey,plaintext));
+  return {iv:b64(iv),ciphertext:b64(ciphertext)};
 }
-async function decryptBytes(data,iv,key){
-  return new Uint8Array(await crypto.subtle.decrypt({name:"AES-GCM",iv},key,data));
+async function decryptPayload(iv,ciphertext){
+  const bytes=await decryptBytes(unb64(ciphertext),unb64(iv),masterKey);
+  const obj=JSON.parse(new TextDecoder().decode(bytes));
+  return typeof obj.body==="string" ? obj.body : "";
 }
-function configRef(uid){ return doc(db,"users",uid,"config","crypto"); }
+function configRef(){ return doc(db,"users",currentUser.uid,"config","crypto"); }
+function entriesCol(){ return collection(db,"users",currentUser.uid,"entries"); }
+function entryRef(id){ return doc(db,"users",currentUser.uid,"entries",id); }
+function versionsCol(id){ return collection(db,"users",currentUser.uid,"entries",id,"versions"); }
+function versionRef(entryId,versionId){ return doc(db,"users",currentUser.uid,"entries",entryId,"versions",versionId); }
+function makeId(){ return crypto.randomUUID(); }
 
-unlockPass.addEventListener("input",()=>unlockBtn.disabled=!unlockPass.value);
-verifyInput.addEventListener("input",()=>verifyBtn.disabled=!verifyInput.value.trim());
-freshRecoveryInput.addEventListener("input",()=>freshRecoveryBtn.disabled=!freshRecoveryInput.value.trim());
+function titleFromBody(body){
+  const first=body.split(/\r?\n/).find(line=>line.trim().length>0);
+  return first ? first.trim() : "(Untitled)";
+}
+function formatTime(ms){
+  if(!ms) return "";
+  try{
+    return new Intl.DateTimeFormat(undefined,{dateStyle:"medium",timeStyle:"short"}).format(new Date(ms));
+  }catch{return new Date(ms).toLocaleString();}
+}
+function visibleEntries(){
+  return [...entries.values()]
+    .filter(e => currentView==="trash" ? e.trashed : !e.trashed)
+    .sort((a,b)=>(a.order??0)-(b.order??0));
+}
+function setSync(text){ syncLine.textContent="Encrypted · "+text; }
 
-signInBtn.addEventListener("click",async()=>{
-  try{ await signInWithPopup(auth,provider); }
-  catch(e){ msg(globalMessage,(e.code||"auth/error")+": "+e.message,"bad"); }
+async function loadCryptoConfig(){
+  const snap=await getDoc(configRef());
+  if(!snap.exists()) throw new Error("Encryption configuration not found.");
+  const cfg=snap.data();
+  if((cfg.schemaVersion||1)<2 || cfg.recoveryEncoding!=="HEX-256"){
+    throw new Error("Recovery migration is not complete.");
+  }
+  cryptoConfig=cfg;
+}
+
+async function unlockWithPassphrase(passphrase){
+  const passKey=await derivePassphraseKey(passphrase,unb64(cryptoConfig.passphraseSalt));
+  const masterBytes=await decryptBytes(
+    unb64(cryptoConfig.passphraseWrappedMaster),
+    unb64(cryptoConfig.passphraseIv),
+    passKey
+  );
+  if(masterBytes.length!==32) throw new Error("Invalid master key.");
+  masterKey=await importAesKey(masterBytes);
+  masterBytes.fill(0);
+}
+
+async function unlockWithRecovery(text){
+  const recoveryBytes=parseHex(text);
+  const recoveryKey=await importAesKey(recoveryBytes,["decrypt"]);
+  recoveryBytes.fill(0);
+  const masterBytes=await decryptBytes(
+    unb64(cryptoConfig.recoveryWrappedMaster),
+    unb64(cryptoConfig.recoveryIv),
+    recoveryKey
+  );
+  if(masterBytes.length!==32) throw new Error("Invalid master key.");
+  masterKey=await importAesKey(masterBytes);
+  masterBytes.fill(0);
+}
+
+function hardLock(){
+  if(saveTimer){ clearTimeout(saveTimer); saveTimer=null; }
+  masterKey=null;
+  currentDraft="";
+  dirty=false;
+  currentEntryId=null;
+  entries.clear();
+  decryptGeneration++;
+  if(unsubscribeEntries){ unsubscribeEntries(); unsubscribeEntries=null; }
+  editorText.value="";
+  hide(appView);
+  show(unlockGate);
+  setMsg(unlockMsg,"Locked.");
+  passphraseInput.value="";
+  recoveryInput.value="";
+  document.body.classList.remove("editor-open");
+  cancelGuard();
+}
+
+async function enterApp(){
+  hide(authGate); hide(unlockGate); show(appView);
+  setSync("starting sync…");
+  startEntriesListener();
+}
+
+async function fetchCurrentBody(entry){
+  if(entry.bodyLoaded) return entry.body ?? "";
+  if(!entry.currentVersionId){
+    entry.body="";
+    entry.bodyLoaded=true;
+    return "";
+  }
+  const snap=await getDoc(versionRef(entry.id,entry.currentVersionId));
+  if(!snap.exists()){
+    entry.body="";
+    entry.bodyLoaded=true;
+    return "";
+  }
+  const d=snap.data();
+  entry.body=await decryptPayload(d.iv,d.ciphertext);
+  entry.bodyLoaded=true;
+  return entry.body;
+}
+
+function startEntriesListener(){
+  if(unsubscribeEntries) unsubscribeEntries();
+  const myGen=++decryptGeneration;
+
+  unsubscribeEntries=onSnapshot(entriesCol(),{includeMetadataChanges:true},async snap=>{
+    if(myGen!==decryptGeneration || !masterKey) return;
+    setSync(snap.metadata.fromCache ? "offline/cache" : "synced");
+
+    const seen=new Set();
+    for(const ds of snap.docs){
+      seen.add(ds.id);
+      const data=ds.data();
+      const prev=entries.get(ds.id);
+      const pointerChanged=prev && prev.currentVersionId!==data.currentVersionId;
+
+      const entry={
+        id:ds.id,
+        ...data,
+        body: prev?.body ?? "",
+        bodyLoaded: prev?.bodyLoaded ?? false
+      };
+
+      if(pointerChanged){
+        if(ds.id===currentEntryId && dirty){
+          entry.body=prev?.body ?? currentDraft;
+          entry.bodyLoaded=true;
+        }else{
+          entry.body="";
+          entry.bodyLoaded=false;
+        }
+      }
+      entries.set(ds.id,entry);
+    }
+    for(const id of [...entries.keys()]){
+      if(!seen.has(id)) entries.delete(id);
+    }
+
+    renderList();
+
+    if(currentEntryId && !entries.has(currentEntryId)){
+      closeEditor();
+    }else if(currentEntryId && !dirty){
+      const e=entries.get(currentEntryId);
+      if(e && !e.bodyLoaded){
+        try{
+          const body=await fetchCurrentBody(e);
+          if(currentEntryId===e.id && !dirty){
+            currentDraft=body;
+            editorText.value=body;
+            updateEditorHeader();
+            renderList();
+          }
+        }catch(err){
+          console.error(err);
+          setSync("decrypt error");
+        }
+      }
+    }
+  },err=>{
+    console.error(err);
+    setSync("sync error");
+  });
+}
+
+async function renderList(){
+  const list=visibleEntries();
+  entryList.innerHTML="";
+  if(!list.length){
+    const div=document.createElement("div");
+    div.className="empty-list";
+    div.textContent=currentView==="trash" ? "Trash is empty." : "No entries yet.";
+    entryList.appendChild(div);
+    return;
+  }
+
+  for(const e of list){
+    if(!e.bodyLoaded){
+      fetchCurrentBody(e).then(()=>renderList()).catch(()=>{});
+    }
+
+    const row=document.createElement("div");
+    row.className="row"+(e.id===currentEntryId?" active":"");
+
+    const main=document.createElement("div");
+    main.className="row-main";
+    const title=document.createElement("div");
+    title.className="row-title";
+    title.textContent=e.bodyLoaded ? titleFromBody(e.body||"") : "Decrypting…";
+    const time=document.createElement("div");
+    time.className="row-time";
+    time.textContent=formatTime(e.clientUpdatedAt);
+    main.append(title,time);
+    main.addEventListener("click",()=>selectEntry(e.id));
+
+    const tools=document.createElement("div");
+    tools.className="row-tools";
+
+    const copy=document.createElement("button");
+    copy.className="mini"; copy.textContent="Copy"; copy.title="Copy";
+    copy.addEventListener("click",async ev=>{
+      ev.stopPropagation();
+      try{
+        const body=await fetchCurrentBody(e);
+        await navigator.clipboard.writeText(body);
+        copy.textContent="✓"; setTimeout(()=>copy.textContent="Copy",700);
+      }catch{}
+    });
+    tools.appendChild(copy);
+
+    if(currentView==="entries"){
+      const move=document.createElement("button");
+      move.className="mini"; move.textContent="Move";
+      move.addEventListener("click",ev=>{
+        ev.stopPropagation();
+        openMoveMenuId=openMoveMenuId===e.id?null:e.id;
+        renderList();
+      });
+      tools.appendChild(move);
+
+      if(openMoveMenuId===e.id){
+        const menu=document.createElement("div");
+        menu.className="menu";
+        const up=document.createElement("button"); up.textContent="Move up 1";
+        const down=document.createElement("button"); down.textContent="Move down 1";
+        up.addEventListener("click",ev=>{ev.stopPropagation();moveEntry(e.id,-1)});
+        down.addEventListener("click",ev=>{ev.stopPropagation();moveEntry(e.id,1)});
+        menu.append(up,down);
+        row.appendChild(menu);
+      }
+    }else{
+      const restore=document.createElement("button");
+      restore.className="mini"; restore.textContent="Restore";
+      restore.addEventListener("click",ev=>{ev.stopPropagation();restoreEntry(e.id)});
+      const del=document.createElement("button");
+      del.className="mini"; del.textContent="Delete";
+      del.addEventListener("click",ev=>{ev.stopPropagation();requestPermanentDelete(e.id)});
+      tools.append(restore,del);
+    }
+
+    row.append(main,tools);
+    entryList.appendChild(row);
+  }
+}
+
+async function selectEntry(id){
+  if(currentEntryId===id){ document.body.classList.add("editor-open"); return; }
+  await flushSave();
+  cancelGuard();
+  openMoveMenuId=null;
+  currentEntryId=id;
+  const e=entries.get(id);
+  if(!e) return;
+  currentDraft=await fetchCurrentBody(e);
+  dirty=false;
+  editorText.value=currentDraft;
+  show(editorText); hide(editorPlaceholder); show(editorActions);
+  trashActiveBtn.textContent=e.trashed?"Restore":"Trash";
+  updateEditorHeader();
+  renderList();
+  document.body.classList.add("editor-open");
+}
+
+function updateEditorHeader(){
+  const e=currentEntryId?entries.get(currentEntryId):null;
+  if(!e){
+    editorTitle.textContent="No entry selected"; editorTime.textContent="";
+    return;
+  }
+  editorTitle.textContent=titleFromBody(currentDraft);
+  editorTime.textContent=(dirty?"Unsaved · ":"")+formatTime(e.clientUpdatedAt);
+}
+
+function closeEditor(){
+  currentEntryId=null; currentDraft=""; dirty=false; editorText.value="";
+  hide(editorText); show(editorPlaceholder); hide(editorActions);
+  editorTitle.textContent="No entry selected"; editorTime.textContent="";
+  document.body.classList.remove("editor-open");
+  renderList();
+}
+
+async function createEntry(){
+  await flushSave();
+  cancelGuard();
+  const id=makeId(), versionId=makeId(), now=Date.now();
+  const list=[...entries.values()].filter(e=>!e.trashed);
+  const minOrder=list.length?Math.min(...list.map(e=>e.order??0)):1000;
+  const order=minOrder-1000;
+  const enc=await encryptText("");
+
+  const batch=writeBatch(db);
+  batch.set(versionRef(id,versionId),{
+    schemaVersion:1,iv:enc.iv,ciphertext:enc.ciphertext,
+    clientCreatedAt:now,createdAt:serverTimestamp()
+  });
+  batch.set(entryRef(id),{
+    schemaVersion:1,currentVersionId:versionId,order,trashed:false,
+    clientCreatedAt:now,clientUpdatedAt:now,
+    createdAt:serverTimestamp(),updatedAt:serverTimestamp()
+  });
+  await batch.commit();
+
+  entries.set(id,{
+    id,schemaVersion:1,currentVersionId:versionId,order,trashed:false,
+    clientCreatedAt:now,clientUpdatedAt:now,body:"",bodyLoaded:true
+  });
+  currentView="entries"; updateTabs();
+  await selectEntry(id);
+  editorText.focus();
+}
+
+function scheduleSave(){
+  dirty=true;
+  updateEditorHeader();
+  if(saveTimer) clearTimeout(saveTimer);
+  saveTimer=setTimeout(()=>flushSave(),SAVE_DELAY_MS);
+}
+
+async function flushSave(){
+  if(saveTimer){ clearTimeout(saveTimer); saveTimer=null; }
+  if(!dirty || !currentEntryId || !masterKey) return;
+
+  const id=currentEntryId;
+  const e=entries.get(id);
+  if(!e) return;
+
+  const body=currentDraft;
+  const versionId=makeId(), now=Date.now();
+  const enc=await encryptText(body);
+  const batch=writeBatch(db);
+
+  // Append-only encrypted revision: old versions are never overwritten.
+  batch.set(versionRef(id,versionId),{
+    schemaVersion:1,iv:enc.iv,ciphertext:enc.ciphertext,
+    clientCreatedAt:now,createdAt:serverTimestamp()
+  });
+  batch.update(entryRef(id),{
+    currentVersionId:versionId,
+    clientUpdatedAt:now,
+    updatedAt:serverTimestamp()
+  });
+
+  dirty=false;
+  e.currentVersionId=versionId;
+  e.clientUpdatedAt=now;
+  e.body=body;
+  e.bodyLoaded=true;
+  updateEditorHeader();
+  renderList();
+
+  try{
+    await batch.commit();
+    setSync(navigator.onLine?"saved/synced":"saved offline");
+  }catch(err){
+    console.error(err);
+    dirty=true;
+    updateEditorHeader();
+    setSync("save queued/error");
+  }
+}
+
+async function moveEntry(id,delta){
+  await flushSave();
+  const list=visibleEntries();
+  const i=list.findIndex(e=>e.id===id), j=i+delta;
+  openMoveMenuId=null;
+  if(i<0 || j<0 || j>=list.length){ renderList(); return; }
+  const a=list[i], b=list[j];
+  const oa=a.order??0, ob=b.order??0;
+  a.order=ob; b.order=oa;
+  renderList();
+  const batch=writeBatch(db);
+  batch.update(entryRef(a.id),{order:ob});
+  batch.update(entryRef(b.id),{order:oa});
+  await batch.commit();
+}
+
+function requestTrash(id){
+  const e=entries.get(id); if(!e) return;
+  startGuard(
+    "Move to Trash?",
+    "The entry will remain encrypted in Trash and can be restored later.",
+    async()=>{
+      await flushSave();
+      await updateDoc(entryRef(id),{
+        trashed:true,deletedAt:serverTimestamp(),clientDeletedAt:Date.now()
+      });
+      e.trashed=true;
+      if(currentEntryId===id) closeEditor();
+      renderList();
+    }
+  );
+}
+
+async function restoreEntry(id){
+  cancelGuard();
+  const e=entries.get(id); if(!e) return;
+  const active=[...entries.values()].filter(x=>!x.trashed);
+  const minOrder=active.length?Math.min(...active.map(x=>x.order??0)):1000;
+  await updateDoc(entryRef(id),{
+    trashed:false,order:minOrder-1000,deletedAt:null,clientDeletedAt:null
+  });
+  e.trashed=false;e.order=minOrder-1000;
+  renderList();
+}
+
+function requestPermanentDelete(id){
+  if(!navigator.onLine){
+    startGuard("Permanent delete unavailable offline","For safety, permanent deletion requires an online connection so every encrypted version can be enumerated and removed.",async()=>{});
+    guardConfirm.disabled=true;
+    guardConfirm.textContent="Online required";
+    return;
+  }
+  startGuard(
+    "Delete permanently?",
+    "After confirmation, the entry and all encrypted version history will be removed from Firebase. This cannot be restored from Trash.",
+    ()=>permanentDelete(id)
+  );
+}
+
+async function permanentDelete(id){
+  setSync("deleting all versions…");
+  const snap=await getDocsFromServer(versionsCol(id));
+  const refs=snap.docs.map(d=>d.ref);
+
+  // Keep batches well below Firestore's per-batch write ceiling.
+  for(let i=0;i<refs.length;i+=200){
+    const batch=writeBatch(db);
+    refs.slice(i,i+200).forEach(ref=>batch.delete(ref));
+    await batch.commit();
+  }
+  await deleteDoc(entryRef(id));
+  entries.delete(id);
+  if(currentEntryId===id) closeEditor();
+  renderList();
+  setSync("permanently deleted");
+}
+
+function startGuard(title,text,action){
+  cancelGuard();
+  guardAction=action;
+  guardTitle.textContent=title; guardText.textContent=text;
+  show(guard);
+  let n=5;
+  guardConfirm.disabled=true;
+  guardConfirm.textContent=`Confirm in ${n}s`;
+  guardTimer=setInterval(()=>{
+    n--;
+    if(n>0){
+      guardConfirm.textContent=`Confirm in ${n}s`;
+    }else{
+      clearInterval(guardTimer);guardTimer=null;
+      guardConfirm.disabled=false;guardConfirm.textContent="Confirm";
+    }
+  },1000);
+}
+function cancelGuard(){
+  if(guardTimer){clearInterval(guardTimer);guardTimer=null}
+  guardAction=null;hide(guard);
+}
+guardCancel.addEventListener("click",cancelGuard);
+guardConfirm.addEventListener("click",async()=>{
+  if(guardConfirm.disabled || !guardAction) return;
+  const fn=guardAction;
+  cancelGuard();
+  try{await fn()}catch(err){console.error(err);setSync("action error")}
 });
-signOutBtn.addEventListener("click",async()=>{
-  masterBytes=null; pendingRecoveryBytes=null; pendingRecoveryText=null; pendingWrapped=null;
-  await signOut(auth);
+
+function updateTabs(){
+  entriesTab.classList.toggle("active",currentView==="entries");
+  trashTab.classList.toggle("active",currentView==="trash");
+  newEntryBtn.disabled=currentView==="trash";
+}
+
+entriesTab.addEventListener("click",async()=>{
+  await flushSave();cancelGuard();currentView="entries";openMoveMenuId=null;updateTabs();
+  if(currentEntryId && entries.get(currentEntryId)?.trashed) closeEditor();
+  renderList();
 });
+trashTab.addEventListener("click",async()=>{
+  await flushSave();cancelGuard();currentView="trash";openMoveMenuId=null;updateTabs();
+  if(currentEntryId && !entries.get(currentEntryId)?.trashed) closeEditor();
+  renderList();
+});
+newEntryBtn.addEventListener("click",createEntry);
+lockBtn.addEventListener("click",async()=>{try{await flushSave()}finally{hardLock()}});
+mobileBackBtn.addEventListener("click",async()=>{await flushSave();document.body.classList.remove("editor-open")});
+
+editorText.addEventListener("input",()=>{
+  currentDraft=editorText.value;
+  const e=currentEntryId?entries.get(currentEntryId):null;
+  if(e){e.body=currentDraft;e.bodyLoaded=true}
+  scheduleSave();renderList();
+});
+editorText.addEventListener("blur",()=>flushSave());
+
+copyActiveBtn.addEventListener("click",async()=>{
+  await navigator.clipboard.writeText(currentDraft);
+  copyActiveBtn.textContent="Copied ✓";setTimeout(()=>copyActiveBtn.textContent="Copy",800);
+});
+trashActiveBtn.addEventListener("click",()=>{
+  const e=currentEntryId?entries.get(currentEntryId):null;
+  if(!e)return;
+  if(e.trashed) restoreEntry(e.id); else requestTrash(e.id);
+});
+
+passphraseInput.addEventListener("input",()=>unlockBtn.disabled=!passphraseInput.value);
+recoveryInput.addEventListener("input",()=>recoveryUnlockBtn.disabled=!recoveryInput.value.trim());
+showRecoveryBtn.addEventListener("click",()=>{hide(passphraseBox);show(recoveryBox);recoveryInput.focus()});
+showPassphraseBtn.addEventListener("click",()=>{hide(recoveryBox);show(passphraseBox);passphraseInput.focus()});
 
 unlockBtn.addEventListener("click",async()=>{
-  unlockBtn.disabled=true;
-  msg(unlockMessage,"Deriving key and decrypting locally…");
+  unlockBtn.disabled=true;setMsg(unlockMsg,"Decrypting locally…");
   try{
-    const passKey=await derivePassphraseKey(unlockPass.value,base64ToBytes(cfg.passphraseSalt));
-    masterBytes=await decryptBytes(
-      base64ToBytes(cfg.passphraseWrappedMaster),
-      base64ToBytes(cfg.passphraseIv),
-      passKey
-    );
-    if(masterBytes.length!==32) throw new Error("Unexpected master-key length.");
-    unlockPass.value="";
-    hide(unlockSection);
-    show(migrateSection);
-    msg(unlockMessage,"Unlocked ✓","ok");
-    msg(globalMessage,"Master key recovered locally. Ready to migrate Recovery Key.","ok");
-  }catch(e){
-    console.error(e);
-    msg(unlockMessage,"Wrong passphrase or corrupted encryption data.","bad");
+    await unlockWithPassphrase(passphraseInput.value);
+    passphraseInput.value="";
+    setMsg(unlockMsg,"Unlocked ✓","ok");
+    await enterApp();
+  }catch(err){
+    console.error(err);setMsg(unlockMsg,"Wrong passphrase or damaged encryption configuration.","bad");
     unlockBtn.disabled=false;
   }
 });
-
-generateBtn.addEventListener("click",async()=>{
-  if(!masterBytes) return;
-  generateBtn.disabled=true;
+recoveryUnlockBtn.addEventListener("click",async()=>{
+  recoveryUnlockBtn.disabled=true;setMsg(unlockMsg,"Decrypting with Recovery Key…");
   try{
-    pendingRecoveryBytes=crypto.getRandomValues(new Uint8Array(32));
-    const recoveryKey=await importRecoveryKey(pendingRecoveryBytes);
-    pendingWrapped=await encryptBytes(masterBytes,recoveryKey);
-
-    const selfTest=await decryptBytes(pendingWrapped.ciphertext,pendingWrapped.iv,recoveryKey);
-    if(!equalBytes(selfTest,masterBytes)) throw new Error("Internal recovery self-test failed.");
-
-    pendingRecoveryText=formatHex(pendingRecoveryBytes);
-    newRecoveryDisplay.textContent=pendingRecoveryText;
-    show(newKeyArea);
-    msg(globalMessage,"New Recovery Key generated and self-tested locally. Save it before continuing.","ok");
-  }catch(e){
-    console.error(e);
-    msg(globalMessage,e.message||String(e),"bad");
-    generateBtn.disabled=false;
+    await unlockWithRecovery(recoveryInput.value);
+    recoveryInput.value="";
+    setMsg(unlockMsg,"Unlocked with Recovery Key ✓","ok");
+    await enterApp();
+  }catch(err){
+    console.error(err);setMsg(unlockMsg,"Recovery Key did not unlock the journal.","bad");
+    recoveryUnlockBtn.disabled=false;
   }
 });
 
-copyBtn.addEventListener("click",async()=>{
-  try{
-    await navigator.clipboard.writeText(pendingRecoveryText);
-    copyBtn.textContent="Copied ✓"; setTimeout(()=>copyBtn.textContent="Copy key",800);
-  }catch{ window.prompt("Copy your new Recovery Key:",pendingRecoveryText); }
+signInBtn.addEventListener("click",async()=>{
+  signInBtn.disabled=true;
+  try{await signInWithPopup(auth,provider)}
+  catch(err){console.error(err);setMsg(authMsg,(err.code||"auth/error")+": "+err.message,"bad")}
+  finally{signInBtn.disabled=false}
 });
-downloadBtn.addEventListener("click",()=>{
-  const body=`PRIVATE JOURNAL — NEW RECOVERY KEY\n\n${pendingRecoveryText}\n\nThis is the new hexadecimal Recovery Key.\nKeep it private and separate from your Journal Passphrase.\n`;
-  const blob=new Blob([body],{type:"text/plain;charset=utf-8"}), url=URL.createObjectURL(blob);
-  const a=document.createElement("a"); a.href=url; a.download="private-journal-new-recovery-key.txt";
-  document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(url),1000);
+gateSignOutBtn.addEventListener("click",async()=>{hardLock();await signOut(auth)});
+
+document.addEventListener("visibilitychange",()=>{
+  if(document.visibilityState==="hidden") flushSave();
 });
-
-verifyBtn.addEventListener("click",async()=>{
-  verifyBtn.disabled=true;
-  msg(verifyMessage,"Verifying locally…");
-  try{
-    const bytes=parseHex(verifyInput.value);
-    const key=await importRecoveryKey(bytes);
-    const recovered=await decryptBytes(pendingWrapped.ciphertext,pendingWrapped.iv,key);
-    if(!equalBytes(recovered,masterBytes)) throw new Error("Recovered key mismatch.");
-    verifyInput.value="";
-    msg(verifyMessage,"New Recovery Key verified ✓","ok");
-    show(commitArea);
-  }catch(e){
-    console.error(e);
-    msg(verifyMessage,"New Recovery Key did not verify. Check the saved key and try again.","bad");
-    verifyBtn.disabled=false;
-  }
-});
-
-commitBtn.addEventListener("click",async()=>{
-  commitBtn.disabled=true;
-  msg(globalMessage,"Writing migrated recovery wrapper to Firebase…");
-  try{
-    const legacy = {
-      schemaVersion: cfg.schemaVersion || 1,
-      recoveryIv: cfg.recoveryIv,
-      recoveryWrappedMaster: cfg.recoveryWrappedMaster
-    };
-
-    await setDoc(configRef(currentUser.uid),{
-      schemaVersion:2,
-      recoveryEncoding:"HEX-256",
-      recoveryIv:bytesToBase64(pendingWrapped.iv),
-      recoveryWrappedMaster:bytesToBase64(pendingWrapped.ciphertext),
-      legacyRecoveryV1:legacy,
-      recoveryMigratedAt:serverTimestamp()
-    },{merge:true});
-
-    // Remove sensitive key material from this page before the independent test.
-    masterBytes=null;
-    pendingRecoveryBytes=null;
-    pendingRecoveryText=null;
-    pendingWrapped=null;
-
-    cfg=(await getDoc(configRef(currentUser.uid))).data();
-    hide(migrateSection);
-    show(freshTestSection);
-    msg(globalMessage,"Migration stored. Now test the NEW Recovery Key against Firebase.","ok");
-  }catch(e){
-    console.error(e);
-    msg(globalMessage,"Migration was not committed: "+(e.message||String(e)),"bad");
-    commitBtn.disabled=false;
-  }
-});
-
-freshRecoveryBtn.addEventListener("click",async()=>{
-  freshRecoveryBtn.disabled=true;
-  msg(freshRecoveryMessage,"Decrypting the Firebase recovery wrapper…");
-  try{
-    const bytes=parseHex(freshRecoveryInput.value);
-    const key=await importRecoveryKey(bytes);
-    const recovered=await decryptBytes(
-      base64ToBytes(cfg.recoveryWrappedMaster),
-      base64ToBytes(cfg.recoveryIv),
-      key
-    );
-    if(recovered.length!==32) throw new Error("Unexpected recovered key length.");
-    recovered.fill(0);
-    freshRecoveryInput.value="";
-    msg(freshRecoveryMessage,"New Recovery Key works ✓","ok");
-    show(doneSection);
-    msg(globalMessage,"Recovery migration independently verified ✓","ok");
-  }catch(e){
-    console.error(e);
-    msg(freshRecoveryMessage,"The new Recovery Key did not decrypt the Firebase wrapper. Keep the old key and report this error.","bad");
-    freshRecoveryBtn.disabled=false;
+window.addEventListener("pagehide",()=>{ if(dirty) flushSave(); });
+window.addEventListener("beforeunload",e=>{
+  if(dirty){
+    flushSave();
+    e.preventDefault();
+    e.returnValue="";
   }
 });
 
 onAuthStateChanged(auth,async user=>{
   currentUser=user;
-  masterBytes=null; pendingRecoveryBytes=null; pendingRecoveryText=null; pendingWrapped=null;
-  hide(unlockSection); hide(migrateSection); hide(freshTestSection); hide(doneSection);
+  masterKey=null;
+  if(unsubscribeEntries){unsubscribeEntries();unsubscribeEntries=null}
+  entries.clear();currentEntryId=null;currentDraft="";dirty=false;
 
   if(!user){
-    accountText.textContent="Not signed in.";
-    show(signInBtn); hide(signOutBtn);
-    msg(globalMessage,"Sign in to continue.");
+    hide(unlockGate);hide(appView);show(authGate);
+    setMsg(authMsg,"Not signed in.");
     return;
   }
 
-  accountText.textContent="Signed in as "+(user.email||"Google account");
-  hide(signInBtn); show(signOutBtn);
-
+  hide(authGate);hide(appView);show(unlockGate);
+  setMsg(unlockMsg,"Loading encrypted key configuration…");
   try{
-    const snap=await getDoc(configRef(user.uid));
-    if(!snap.exists()) throw new Error("No encryption configuration found.");
-    cfg=snap.data();
-
-    if((cfg.schemaVersion||1)>=2 && cfg.recoveryEncoding==="HEX-256"){
-      show(freshTestSection);
-      msg(globalMessage,"Recovery migration is already stored. Test the NEW Recovery Key below.");
-    }else{
-      show(unlockSection);
-      msg(globalMessage,"Legacy recovery format detected. Unlock with your Journal Passphrase to migrate.");
-    }
-  }catch(e){
-    console.error(e);
-    msg(globalMessage,e.message||String(e),"bad");
+    await loadCryptoConfig();
+    setMsg(unlockMsg,"Locked. Enter your Journal Passphrase.");
+    passphraseInput.focus();
+  }catch(err){
+    console.error(err);setMsg(unlockMsg,err.message||String(err),"bad");
   }
 });
 </script>
