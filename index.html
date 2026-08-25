@@ -100,7 +100,7 @@ button:disabled{opacity:.4;cursor:not-allowed}
     <div id="recoverySection" class="section hidden">
       <h2>3. Save your Recovery Key</h2>
       <div class="note">
-        This key is generated randomly on your device. Firebase does not receive the key itself.
+        This 256-bit key is generated randomly on your device and shown as hexadecimal groups. Firebase does not receive the key itself.
         Save it somewhere separate from your Journal Passphrase.
       </div>
 
@@ -142,6 +142,23 @@ button:disabled{opacity:.4;cursor:not-allowed}
         <button id="unlockBtn" type="button" disabled>Unlock</button>
       </div>
       <div id="unlockMessage" class="status hidden"></div>
+    </div>
+
+
+    <div id="legacyRecoverySection" class="section hidden">
+      <h2>Recovery Key compatibility check</h2>
+      <div class="note">
+        Your existing Recovery Key was created by the first test version.
+        This fixed parser reads that format correctly without changing or deleting your encrypted key data.
+      </div>
+
+      <label for="legacyRecoveryInput">Existing Recovery Key</label>
+      <input id="legacyRecoveryInput" type="text" autocomplete="off" autocapitalize="off" spellcheck="false">
+
+      <div class="actions">
+        <button id="legacyRecoveryBtn" type="button" disabled>Verify existing Recovery Key</button>
+      </div>
+      <div id="legacyRecoveryMessage" class="status hidden"></div>
     </div>
 
     <div id="unlockedSection" class="section hidden">
@@ -205,6 +222,10 @@ const unlockPass = $("unlockPass");
 const unlockBtn = $("unlockBtn");
 const unlockMessage = $("unlockMessage");
 const lockBtn = $("lockBtn");
+const legacyRecoverySection = $("legacyRecoverySection");
+const legacyRecoveryInput = $("legacyRecoveryInput");
+const legacyRecoveryBtn = $("legacyRecoveryBtn");
+const legacyRecoveryMessage = $("legacyRecoveryMessage");
 const globalMessage = $("globalMessage");
 
 let currentUser = null;
@@ -249,13 +270,61 @@ function base64UrlToBytes(str){
 }
 
 function formatRecoveryKey(bytes){
-  const raw = bytesToBase64Url(bytes);
+  const raw = Array.from(bytes)
+    .map(b => b.toString(16).padStart(2, "0"))
+    .join("")
+    .toUpperCase();
   return raw.match(/.{1,4}/g).join("-");
 }
 
 function parseRecoveryKey(text){
-  const compact = text.trim().replace(/\s+/g,"").replace(/-/g,"");
-  return base64UrlToBytes(compact);
+  const compact = text.trim().replace(/[\s-]/g, "").toUpperCase();
+
+  if(!/^[0-9A-F]{64}$/.test(compact)){
+    throw new Error("Recovery Key must contain exactly 64 hexadecimal characters.");
+  }
+
+  const out = new Uint8Array(32);
+  for(let i = 0; i < 32; i++){
+    out[i] = parseInt(compact.slice(i * 2, i * 2 + 2), 16);
+  }
+  return out;
+}
+
+function parseLegacyRecoveryKey(text){
+  // Legacy v1 displayed the 43-char Base64URL value in 4-character groups
+  // separated by hyphens. A raw Base64URL character can itself be "-",
+  // so separators must be removed by POSITION, not globally.
+  const s = text.trim().replace(/\s+/g, "");
+  let raw = "";
+  let pos = 0;
+
+  while(raw.length < 43){
+    const take = Math.min(4, 43 - raw.length);
+    if(pos + take > s.length){
+      throw new Error("Legacy Recovery Key is incomplete.");
+    }
+
+    raw += s.slice(pos, pos + take);
+    pos += take;
+
+    if(raw.length < 43){
+      if(s[pos] !== "-"){
+        throw new Error("Legacy Recovery Key grouping is invalid.");
+      }
+      pos += 1;
+    }
+  }
+
+  if(pos !== s.length){
+    throw new Error("Legacy Recovery Key has unexpected extra characters.");
+  }
+
+  const bytes = base64UrlToBytes(raw);
+  if(bytes.length !== 32){
+    throw new Error("Legacy Recovery Key did not decode to 32 bytes.");
+  }
+  return bytes;
 }
 
 function equalBytes(a,b){
@@ -334,6 +403,9 @@ pass1.addEventListener("input", updateSetupButton);
 pass2.addEventListener("input", updateSetupButton);
 unlockPass.addEventListener("input", () => unlockBtn.disabled = unlockPass.value.length === 0);
 recoveryVerify.addEventListener("input", () => verifyRecoveryBtn.disabled = recoveryVerify.value.trim().length === 0);
+legacyRecoveryInput.addEventListener("input", () => {
+  legacyRecoveryBtn.disabled = legacyRecoveryInput.value.trim().length === 0;
+});
 
 signInBtn.addEventListener("click", async ()=>{
   signInBtn.disabled = true;
@@ -375,8 +447,19 @@ createKeysBtn.addEventListener("click", async ()=>{
     const passWrapped = await encryptBytes(masterBytes, passphraseKey);
     const recoveryWrapped = await encryptBytes(masterBytes, recoveryKey);
 
+    // Internal self-test before anything is saved remotely.
+    const recoverySelfTest = await decryptBytes(
+      recoveryWrapped.ciphertext,
+      recoveryWrapped.iv,
+      recoveryKey
+    );
+    if(!equalBytes(recoverySelfTest, masterBytes)){
+      throw new Error("Recovery-key self-test failed. Nothing was saved.");
+    }
+
     const config = {
-      schemaVersion: 1,
+      schemaVersion: 2,
+      recoveryEncoding: "HEX-256",
       cipher: "AES-GCM-256",
       kdf: "PBKDF2-HMAC-SHA256",
       iterations: PBKDF2_ITERATIONS,
@@ -471,6 +554,46 @@ verifyRecoveryBtn.addEventListener("click", async ()=>{
   }
 });
 
+
+legacyRecoveryBtn.addEventListener("click", async ()=>{
+  if(!currentUser || !cryptoConfig || !legacyRecoveryInput.value.trim()) return;
+
+  legacyRecoveryBtn.disabled = true;
+  show(legacyRecoveryMessage);
+  showMessage(legacyRecoveryMessage, "Verifying with the corrected legacy parser…");
+
+  try{
+    const recoveryBytes = parseLegacyRecoveryKey(legacyRecoveryInput.value);
+    const recoveryKey = await importRecoveryKey(recoveryBytes);
+
+    const recoveredMaster = await decryptBytes(
+      base64ToBytes(cryptoConfig.recoveryWrappedMaster),
+      base64ToBytes(cryptoConfig.recoveryIv),
+      recoveryKey
+    );
+
+    if(recoveredMaster.length !== 32){
+      throw new Error("Recovered master key has an invalid length.");
+    }
+
+    legacyRecoveryInput.value = "";
+    showMessage(
+      legacyRecoveryMessage,
+      "Existing Recovery Key verified ✓ Your stored encrypted master key is intact.",
+      "ok"
+    );
+    showMessage(globalMessage, "Recovery path works ✓ No Firebase data needed to be deleted.", "ok");
+  }catch(err){
+    console.error(err);
+    showMessage(
+      legacyRecoveryMessage,
+      "Recovery Key still did not verify. Do not delete anything; report this message instead.",
+      "bad"
+    );
+    legacyRecoveryBtn.disabled = false;
+  }
+});
+
 unlockBtn.addEventListener("click", async ()=>{
   if(!currentUser || !cryptoConfig || !unlockPass.value) return;
   unlockBtn.disabled = true;
@@ -520,6 +643,7 @@ onAuthStateChanged(auth, async user=>{
   hide(recoverySection);
   hide(unlockSection);
   hide(unlockedSection);
+  hide(legacyRecoverySection);
 
   if(!user){
     accountText.textContent = "Not signed in.";
@@ -540,6 +664,9 @@ onAuthStateChanged(auth, async user=>{
     const cfg = await loadConfig();
     if(cfg){
       show(unlockSection);
+      if((cfg.schemaVersion || 1) === 1){
+        show(legacyRecoverySection);
+      }
       showMessage(globalMessage, "Encryption configuration found. Enter your Journal Passphrase.");
     }else{
       show(setupSection);
