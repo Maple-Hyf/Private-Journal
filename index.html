@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Private Journal</title>
+<title>Private Journal v1.1</title>
 <style>
 :root{
   color-scheme:light dark;
@@ -210,7 +210,7 @@ textarea{
         <button id="entriesTab" class="tab active">Entries</button>
         <button id="trashTab" class="tab">Trash</button>
       </div>
-      <div id="syncLine" class="syncline">Encrypted · loading…</div>
+      <div id="syncLine" class="syncline">Encrypted · loading… · v1.1</div>
     </div>
     <div id="entryList" class="list"></div>
   </aside>
@@ -267,7 +267,7 @@ const firebaseConfig = {
 };
 
 const PBKDF2_ITERATIONS = 600000;
-const SAVE_DELAY_MS = 900;
+const SAVE_DELAY_MS = 500;
 
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
@@ -331,7 +331,7 @@ function parseHex(text){
 async function derivePassphraseKey(passphrase,salt){
   const material=await crypto.subtle.importKey("raw",new TextEncoder().encode(passphrase),"PBKDF2",false,["deriveKey"]);
   return crypto.subtle.deriveKey(
-    {name:"PBKDF2",salt,iterations:(cryptoConfig?.iterations || PBKDF2_ITERATIONS),hash:"SHA-256"},
+    {name:"PBKDF2",salt,iterations:PBKDF2_ITERATIONS,hash:"SHA-256"},
     material,{name:"AES-GCM",length:256},false,["decrypt"]
   );
 }
@@ -374,7 +374,7 @@ function visibleEntries(){
     .filter(e => currentView==="trash" ? e.trashed : !e.trashed)
     .sort((a,b)=>(a.order??0)-(b.order??0));
 }
-function setSync(text){ syncLine.textContent="Encrypted · "+text; }
+function setSync(text){ syncLine.textContent="Encrypted · "+text+" · v1.1"; }
 
 async function loadCryptoConfig(){
   const snap=await getDoc(configRef());
@@ -439,17 +439,29 @@ async function enterApp(){
 
 async function fetchCurrentBody(entry){
   if(entry.bodyLoaded) return entry.body ?? "";
+
+  // Fast path: current ciphertext lives directly on the entry document,
+  // so remote listeners can decrypt immediately without a second Firestore read.
+  if(entry.latestIv && entry.latestCiphertext){
+    entry.body=await decryptPayload(entry.latestIv,entry.latestCiphertext);
+    entry.bodyLoaded=true;
+    return entry.body;
+  }
+
+  // Backward-compatible fallback for entries created by v1.
   if(!entry.currentVersionId){
     entry.body="";
     entry.bodyLoaded=true;
     return "";
   }
+
   const snap=await getDoc(versionRef(entry.id,entry.currentVersionId));
   if(!snap.exists()){
     entry.body="";
     entry.bodyLoaded=true;
     return "";
   }
+
   const d=snap.data();
   entry.body=await decryptPayload(d.iv,d.ciphertext);
   entry.bodyLoaded=true;
@@ -469,7 +481,11 @@ function startEntriesListener(){
       seen.add(ds.id);
       const data=ds.data();
       const prev=entries.get(ds.id);
-      const pointerChanged=prev && prev.currentVersionId!==data.currentVersionId;
+      const pointerChanged=prev && (
+        prev.currentVersionId!==data.currentVersionId ||
+        prev.latestCiphertext!==data.latestCiphertext ||
+        prev.latestIv!==data.latestIv
+      );
 
       const entry={
         id:ds.id,
@@ -651,15 +667,31 @@ async function createEntry(){
     clientCreatedAt:now,createdAt:serverTimestamp()
   });
   batch.set(entryRef(id),{
-    schemaVersion:1,currentVersionId:versionId,order,trashed:false,
-    clientCreatedAt:now,clientUpdatedAt:now,
-    createdAt:serverTimestamp(),updatedAt:serverTimestamp()
+    schemaVersion:2,
+    currentVersionId:versionId,
+    latestIv:enc.iv,
+    latestCiphertext:enc.ciphertext,
+    order,
+    trashed:false,
+    clientCreatedAt:now,
+    clientUpdatedAt:now,
+    createdAt:serverTimestamp(),
+    updatedAt:serverTimestamp()
   });
   await batch.commit();
 
   entries.set(id,{
-    id,schemaVersion:1,currentVersionId:versionId,order,trashed:false,
-    clientCreatedAt:now,clientUpdatedAt:now,body:"",bodyLoaded:true
+    id,
+    schemaVersion:2,
+    currentVersionId:versionId,
+    latestIv:enc.iv,
+    latestCiphertext:enc.ciphertext,
+    order,
+    trashed:false,
+    clientCreatedAt:now,
+    clientUpdatedAt:now,
+    body:"",
+    bodyLoaded:true
   });
   currentView="entries"; updateTabs();
   await selectEntry(id);
@@ -692,13 +724,19 @@ async function flushSave(){
     clientCreatedAt:now,createdAt:serverTimestamp()
   });
   batch.update(entryRef(id),{
+    schemaVersion:2,
     currentVersionId:versionId,
+    latestIv:enc.iv,
+    latestCiphertext:enc.ciphertext,
     clientUpdatedAt:now,
     updatedAt:serverTimestamp()
   });
 
   dirty=false;
+  e.schemaVersion=2;
   e.currentVersionId=versionId;
+  e.latestIv=enc.iv;
+  e.latestCiphertext=enc.ciphertext;
   e.clientUpdatedAt=now;
   e.body=body;
   e.bodyLoaded=true;
@@ -903,13 +941,6 @@ document.addEventListener("visibilitychange",()=>{
   if(document.visibilityState==="hidden") flushSave();
 });
 window.addEventListener("pagehide",()=>{ if(dirty) flushSave(); });
-window.addEventListener("beforeunload",e=>{
-  if(dirty){
-    flushSave();
-    e.preventDefault();
-    e.returnValue="";
-  }
-});
 
 onAuthStateChanged(auth,async user=>{
   currentUser=user;
