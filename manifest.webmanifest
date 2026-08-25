@@ -1,0 +1,12 @@
+{
+  "id": "./",
+  "name": "Private Journal",
+  "short_name": "Journal",
+  "description": "A private client-side encrypted journal.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#f4f4f1",
+  "theme_color": "#f4f4f1",
+  "orientation": "any"
+}
