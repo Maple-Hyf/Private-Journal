@@ -3,42 +3,170 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Private Journal — Login Test</title>
+<title>Private Journal — Encryption Setup</title>
 <style>
-:root{--bg:#f4f4f1;--card:#fff;--text:#181818;--muted:#6f6f69;--border:#deded8;--soft:#f0f0ec;--ok:#2f6f3d;--danger:#a33}
+:root{
+  color-scheme:light dark;
+  --bg:light-dark(#f4f4f1,#151514);
+  --card:light-dark(#ffffff,#1d1d1b);
+  --soft:light-dark(#f0f0ec,#252522);
+  --text:light-dark(#181818,#f3f3ef);
+  --muted:light-dark(#70706a,#aaa9a2);
+  --border:light-dark(#deded8,#363632);
+  --ok:light-dark(#2f6f3d,#8bd59d);
+  --bad:light-dark(#9b3434,#f09a9a);
+}
 *{box-sizing:border-box}
-body{margin:0;background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif}
-.wrap{width:min(560px,calc(100% - 28px));margin:60px auto}
+body{
+  margin:0;background:var(--bg);color:var(--text);
+  font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+}
+.wrap{width:min(640px,calc(100% - 28px));margin:42px auto 70px}
 .card{background:var(--card);border:1px solid var(--border);border-radius:18px;padding:26px}
 .eyebrow{text-transform:uppercase;letter-spacing:.16em;color:var(--muted);font-size:12px;margin-bottom:8px}
 h1{margin:0 0 8px;font-size:28px;letter-spacing:-.4px}
-.sub{color:var(--muted);line-height:1.55;font-size:14px;margin-bottom:22px}
-button{min-height:44px;border:none;border-radius:11px;padding:10px 15px;font:inherit;font-weight:700;cursor:pointer}
-.primary{background:#171717;color:#fff}.secondary{background:var(--soft);color:var(--text);border:1px solid var(--border)}
-button:disabled{opacity:.45;cursor:not-allowed}
-.status{margin-top:18px;border:1px solid var(--border);background:#fafaf8;border-radius:12px;padding:14px;font-size:14px;line-height:1.55}
-.label{color:var(--muted);font-size:12px;margin-bottom:2px}.value{word-break:break-all;margin-bottom:10px}
-.message{margin-top:12px;font-size:13px;color:var(--muted);min-height:20px}.ok{color:var(--ok)}.error{color:var(--danger)}.hidden{display:none}
+h2{margin:0 0 8px;font-size:20px}
+.sub,.note{color:var(--muted);font-size:14px;line-height:1.55}
+.section{margin-top:22px;padding-top:20px;border-top:1px solid var(--border)}
+label{display:block;font-size:13px;font-weight:700;margin:13px 0 7px}
+input{
+  width:100%;min-height:48px;padding:12px 14px;
+  border:1px solid var(--border);border-radius:12px;
+  background:var(--card);color:var(--text);font:inherit;font-size:16px;outline:none
+}
+input:focus{border-color:var(--muted);box-shadow:0 0 0 3px color-mix(in srgb,var(--text) 8%,transparent)}
+.actions{display:flex;gap:9px;flex-wrap:wrap;margin-top:16px}
+button{
+  min-height:44px;border:0;border-radius:11px;padding:10px 15px;
+  font:inherit;font-weight:750;cursor:pointer;background:var(--text);color:var(--bg)
+}
+button.secondary{background:var(--soft);color:var(--text);border:1px solid var(--border)}
+button:disabled{opacity:.4;cursor:not-allowed}
+.status{
+  margin-top:16px;padding:13px 14px;border:1px solid var(--border);
+  border-radius:12px;background:var(--soft);font-size:13px;line-height:1.5
+}
+.ok{color:var(--ok)} .bad{color:var(--bad)}
+.recovery{
+  margin-top:14px;padding:15px;border:1px solid var(--border);border-radius:12px;
+  background:var(--soft);font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  font-size:15px;line-height:1.65;word-break:break-all;user-select:all
+}
+.account{font-size:12px;color:var(--muted);margin-top:5px;word-break:break-all}
+.hidden{display:none!important}
+.small{font-size:12px;color:var(--muted);line-height:1.5}
+.warning{color:var(--bad)}
+@media(max-width:560px){.wrap{margin-top:18px}.card{padding:20px}}
 </style>
 </head>
 <body>
 <main class="wrap">
-<section class="card">
-<div class="eyebrow">Private Journal</div>
-<h1>Firebase login test</h1>
-<div class="sub">This page only tests authentication. It does not create, read, or store journal entries.</div>
-<button id="signInBtn" class="primary" type="button">Sign in with Google</button>
-<button id="signOutBtn" class="secondary hidden" type="button">Sign out</button>
-<div id="accountBox" class="status hidden">
-<div class="label">Signed in as</div><div id="emailValue" class="value"></div>
-<div class="label">Firebase UID</div><div id="uidValue" class="value"></div>
-</div>
-<div id="message" class="message">Checking Firebase…</div>
-</section>
+  <section class="card">
+    <div class="eyebrow">Private Journal</div>
+    <h1>Encryption setup test</h1>
+    <div class="sub">
+      This step creates and tests your real client-side encryption keys.
+      It still does not create any journal entries.
+    </div>
+
+    <div id="authSection" class="section">
+      <h2>1. Account</h2>
+      <div id="accountText" class="note">Checking sign-in…</div>
+      <div class="actions">
+        <button id="signInBtn" type="button" class="hidden">Sign in with Google</button>
+        <button id="signOutBtn" type="button" class="secondary hidden">Sign out</button>
+      </div>
+    </div>
+
+    <div id="setupSection" class="section hidden">
+      <h2>2. Create Journal Passphrase</h2>
+      <div class="note">
+        Use a unique passphrase of at least 16 characters. It never gets uploaded.
+        Exact characters matter.
+      </div>
+
+      <label for="pass1">Journal Passphrase</label>
+      <input id="pass1" type="password" autocomplete="new-password">
+
+      <label for="pass2">Confirm Journal Passphrase</label>
+      <input id="pass2" type="password" autocomplete="new-password">
+
+      <div class="actions">
+        <button id="createKeysBtn" type="button" disabled>Create encrypted journal keys</button>
+      </div>
+      <div id="setupMessage" class="status hidden"></div>
+    </div>
+
+    <div id="recoverySection" class="section hidden">
+      <h2>3. Save your Recovery Key</h2>
+      <div class="note">
+        This key is generated randomly on your device. Firebase does not receive the key itself.
+        Save it somewhere separate from your Journal Passphrase.
+      </div>
+
+      <div id="recoveryKeyDisplay" class="recovery"></div>
+
+      <div class="actions">
+        <button id="copyRecoveryBtn" type="button" class="secondary">Copy key</button>
+        <button id="downloadRecoveryBtn" type="button" class="secondary">Download .txt</button>
+      </div>
+
+      <div class="section">
+        <h2>4. Verify Recovery Key</h2>
+        <div class="note">
+          To make sure the saved key is usable, paste it back below.
+          The Journal setup is not considered complete until this succeeds.
+        </div>
+
+        <label for="recoveryVerify">Paste Recovery Key</label>
+        <input id="recoveryVerify" type="text" autocomplete="off" autocapitalize="off" spellcheck="false">
+
+        <div class="actions">
+          <button id="verifyRecoveryBtn" type="button" disabled>Verify Recovery Key</button>
+        </div>
+        <div id="recoveryMessage" class="status hidden"></div>
+      </div>
+    </div>
+
+    <div id="unlockSection" class="section hidden">
+      <h2>Unlock Journal</h2>
+      <div class="note">
+        Your encryption setup already exists in Firebase. Enter your Journal Passphrase.
+        The decrypted master key stays only in this page's memory.
+      </div>
+
+      <label for="unlockPass">Journal Passphrase</label>
+      <input id="unlockPass" type="password" autocomplete="current-password">
+
+      <div class="actions">
+        <button id="unlockBtn" type="button" disabled>Unlock</button>
+      </div>
+      <div id="unlockMessage" class="status hidden"></div>
+    </div>
+
+    <div id="unlockedSection" class="section hidden">
+      <h2>Encryption works ✓</h2>
+      <div class="note">
+        The master encryption key was successfully recovered locally.
+        It has not been saved to localStorage or uploaded in plaintext.
+      </div>
+      <div class="actions">
+        <button id="lockBtn" type="button">Lock</button>
+      </div>
+    </div>
+
+    <div id="globalMessage" class="status">Loading Firebase…</div>
+  </section>
 </main>
+
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-app.js";
-import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-auth.js";
+import {
+  getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged
+} from "https://www.gstatic.com/firebasejs/12.2.1/firebase-auth.js";
+import {
+  getFirestore, doc, getDoc, setDoc, serverTimestamp
+} from "https://www.gstatic.com/firebasejs/12.2.1/firebase-firestore.js";
 
 const firebaseConfig = {
   apiKey: "AIzaSyDdrVBF-4iHS9gcryZyA6zvlcHf98UWzk0",
@@ -49,60 +177,377 @@ const firebaseConfig = {
   appId: "1:61998448621:web:c712df902fc6140b30b1e4"
 };
 
+const PBKDF2_ITERATIONS = 600000;
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
+const db = getFirestore(app);
 const provider = new GoogleAuthProvider();
 
-const signInBtn = document.getElementById("signInBtn");
-const signOutBtn = document.getElementById("signOutBtn");
-const accountBox = document.getElementById("accountBox");
-const emailValue = document.getElementById("emailValue");
-const uidValue = document.getElementById("uidValue");
-const message = document.getElementById("message");
+const $ = id => document.getElementById(id);
+const signInBtn = $("signInBtn");
+const signOutBtn = $("signOutBtn");
+const accountText = $("accountText");
+const setupSection = $("setupSection");
+const recoverySection = $("recoverySection");
+const unlockSection = $("unlockSection");
+const unlockedSection = $("unlockedSection");
+const pass1 = $("pass1");
+const pass2 = $("pass2");
+const createKeysBtn = $("createKeysBtn");
+const setupMessage = $("setupMessage");
+const recoveryKeyDisplay = $("recoveryKeyDisplay");
+const copyRecoveryBtn = $("copyRecoveryBtn");
+const downloadRecoveryBtn = $("downloadRecoveryBtn");
+const recoveryVerify = $("recoveryVerify");
+const verifyRecoveryBtn = $("verifyRecoveryBtn");
+const recoveryMessage = $("recoveryMessage");
+const unlockPass = $("unlockPass");
+const unlockBtn = $("unlockBtn");
+const unlockMessage = $("unlockMessage");
+const lockBtn = $("lockBtn");
+const globalMessage = $("globalMessage");
 
-function setMessage(text, kind=""){
-  message.textContent = text;
-  message.className = "message" + (kind ? " " + kind : "");
+let currentUser = null;
+let cryptoConfig = null;
+let unlockedMasterKey = null;
+let initialMasterBytes = null;
+let shownRecoveryKey = null;
+
+function showMessage(el, text, kind=""){
+  el.textContent = text;
+  el.className = "status" + (kind ? " " + kind : "");
 }
 
-signInBtn.addEventListener("click", async () => {
+function hide(el){ el.classList.add("hidden"); }
+function show(el){ el.classList.remove("hidden"); }
+
+function bytesToBase64(bytes){
+  let binary = "";
+  const chunk = 0x8000;
+  for(let i=0;i<bytes.length;i+=chunk){
+    binary += String.fromCharCode(...bytes.subarray(i, i+chunk));
+  }
+  return btoa(binary);
+}
+
+function base64ToBytes(str){
+  const binary = atob(str);
+  const out = new Uint8Array(binary.length);
+  for(let i=0;i<binary.length;i++) out[i] = binary.charCodeAt(i);
+  return out;
+}
+
+function bytesToBase64Url(bytes){
+  return bytesToBase64(bytes)
+    .replace(/\+/g,"-").replace(/\//g,"_").replace(/=+$/,"");
+}
+
+function base64UrlToBytes(str){
+  let clean = str.replace(/-/g,"+").replace(/_/g,"/");
+  while(clean.length % 4) clean += "=";
+  return base64ToBytes(clean);
+}
+
+function formatRecoveryKey(bytes){
+  const raw = bytesToBase64Url(bytes);
+  return raw.match(/.{1,4}/g).join("-");
+}
+
+function parseRecoveryKey(text){
+  const compact = text.trim().replace(/\s+/g,"").replace(/-/g,"");
+  return base64UrlToBytes(compact);
+}
+
+function equalBytes(a,b){
+  if(a.length !== b.length) return false;
+  let diff = 0;
+  for(let i=0;i<a.length;i++) diff |= a[i] ^ b[i];
+  return diff === 0;
+}
+
+async function derivePassphraseKey(passphrase, salt){
+  const material = await crypto.subtle.importKey(
+    "raw",
+    new TextEncoder().encode(passphrase),
+    "PBKDF2",
+    false,
+    ["deriveKey"]
+  );
+  return crypto.subtle.deriveKey(
+    {
+      name:"PBKDF2",
+      salt,
+      iterations:PBKDF2_ITERATIONS,
+      hash:"SHA-256"
+    },
+    material,
+    {name:"AES-GCM", length:256},
+    false,
+    ["encrypt","decrypt"]
+  );
+}
+
+async function importRecoveryKey(bytes){
+  if(bytes.length !== 32) throw new Error("Recovery key must decode to 32 bytes.");
+  return crypto.subtle.importKey(
+    "raw", bytes, {name:"AES-GCM"}, false, ["encrypt","decrypt"]
+  );
+}
+
+async function encryptBytes(plaintextBytes, key){
+  const iv = crypto.getRandomValues(new Uint8Array(12));
+  const ciphertext = new Uint8Array(
+    await crypto.subtle.encrypt({name:"AES-GCM",iv},key,plaintextBytes)
+  );
+  return {iv,ciphertext};
+}
+
+async function decryptBytes(ciphertextBytes, iv, key){
+  return new Uint8Array(
+    await crypto.subtle.decrypt({name:"AES-GCM",iv},key,ciphertextBytes)
+  );
+}
+
+async function importMasterKey(masterBytes){
+  return crypto.subtle.importKey(
+    "raw", masterBytes, {name:"AES-GCM"}, false, ["encrypt","decrypt"]
+  );
+}
+
+function configRef(uid){
+  return doc(db, "users", uid, "config", "crypto");
+}
+
+async function loadConfig(){
+  const snap = await getDoc(configRef(currentUser.uid));
+  cryptoConfig = snap.exists() ? snap.data() : null;
+  return cryptoConfig;
+}
+
+function updateSetupButton(){
+  createKeysBtn.disabled = !(
+    pass1.value.length >= 16 &&
+    pass1.value === pass2.value
+  );
+}
+pass1.addEventListener("input", updateSetupButton);
+pass2.addEventListener("input", updateSetupButton);
+unlockPass.addEventListener("input", () => unlockBtn.disabled = unlockPass.value.length === 0);
+recoveryVerify.addEventListener("input", () => verifyRecoveryBtn.disabled = recoveryVerify.value.trim().length === 0);
+
+signInBtn.addEventListener("click", async ()=>{
   signInBtn.disabled = true;
-  setMessage("Opening Google sign-in…");
-  try {
+  try{
     await signInWithPopup(auth, provider);
-  } catch (error) {
-    console.error(error);
-    setMessage((error.code || "auth/error") + ": " + error.message, "error");
-  } finally {
+  }catch(err){
+    showMessage(globalMessage, (err.code || "auth/error") + ": " + err.message, "bad");
+  }finally{
     signInBtn.disabled = false;
   }
 });
 
-signOutBtn.addEventListener("click", async () => {
-  signOutBtn.disabled = true;
-  try {
-    await signOut(auth);
-  } catch (error) {
-    console.error(error);
-    setMessage((error.code || "auth/error") + ": " + error.message, "error");
-  } finally {
-    signOutBtn.disabled = false;
+signOutBtn.addEventListener("click", async ()=>{
+  unlockedMasterKey = null;
+  initialMasterBytes = null;
+  shownRecoveryKey = null;
+  await signOut(auth);
+});
+
+createKeysBtn.addEventListener("click", async ()=>{
+  if(!currentUser) return;
+  if(pass1.value.length < 16 || pass1.value !== pass2.value) return;
+
+  createKeysBtn.disabled = true;
+  showMessage(setupMessage, "Generating keys and encrypting the master key…");
+  show(setupMessage);
+
+  try{
+    const existing = await getDoc(configRef(currentUser.uid));
+    if(existing.exists()) throw new Error("Encryption configuration already exists.");
+
+    const masterBytes = crypto.getRandomValues(new Uint8Array(32));
+    const recoveryBytes = crypto.getRandomValues(new Uint8Array(32));
+    const passphraseSalt = crypto.getRandomValues(new Uint8Array(16));
+
+    const passphraseKey = await derivePassphraseKey(pass1.value, passphraseSalt);
+    const recoveryKey = await importRecoveryKey(recoveryBytes);
+
+    const passWrapped = await encryptBytes(masterBytes, passphraseKey);
+    const recoveryWrapped = await encryptBytes(masterBytes, recoveryKey);
+
+    const config = {
+      schemaVersion: 1,
+      cipher: "AES-GCM-256",
+      kdf: "PBKDF2-HMAC-SHA256",
+      iterations: PBKDF2_ITERATIONS,
+      passphraseSalt: bytesToBase64(passphraseSalt),
+      passphraseIv: bytesToBase64(passWrapped.iv),
+      passphraseWrappedMaster: bytesToBase64(passWrapped.ciphertext),
+      recoveryIv: bytesToBase64(recoveryWrapped.iv),
+      recoveryWrappedMaster: bytesToBase64(recoveryWrapped.ciphertext),
+      createdAt: serverTimestamp()
+    };
+
+    await setDoc(configRef(currentUser.uid), config);
+    cryptoConfig = config;
+    initialMasterBytes = masterBytes;
+    unlockedMasterKey = await importMasterKey(masterBytes);
+
+    shownRecoveryKey = formatRecoveryKey(recoveryBytes);
+    recoveryKeyDisplay.textContent = shownRecoveryKey;
+
+    pass1.value = "";
+    pass2.value = "";
+    hide(setupSection);
+    show(recoverySection);
+    showMessage(setupMessage, "Keys created.", "ok");
+    showMessage(globalMessage, "Encryption configuration stored as ciphertext only.", "ok");
+  }catch(err){
+    console.error(err);
+    showMessage(setupMessage, err.message || String(err), "bad");
+    createKeysBtn.disabled = false;
   }
 });
 
-onAuthStateChanged(auth, (user) => {
-  if (user) {
-    emailValue.textContent = user.email || "(no email)";
-    uidValue.textContent = user.uid;
-    accountBox.classList.remove("hidden");
-    signInBtn.classList.add("hidden");
-    signOutBtn.classList.remove("hidden");
-    setMessage("Authentication works ✓", "ok");
-  } else {
-    accountBox.classList.add("hidden");
-    signInBtn.classList.remove("hidden");
-    signOutBtn.classList.add("hidden");
-    setMessage("Not signed in.");
+copyRecoveryBtn.addEventListener("click", async ()=>{
+  if(!shownRecoveryKey) return;
+  try{
+    await navigator.clipboard.writeText(shownRecoveryKey);
+    copyRecoveryBtn.textContent = "Copied ✓";
+    setTimeout(()=>copyRecoveryBtn.textContent="Copy key",800);
+  }catch{
+    window.prompt("Copy your Recovery Key:", shownRecoveryKey);
+  }
+});
+
+downloadRecoveryBtn.addEventListener("click", ()=>{
+  if(!shownRecoveryKey) return;
+  const text =
+`PRIVATE JOURNAL RECOVERY KEY
+
+${shownRecoveryKey}
+
+Keep this key private and separate from your Journal Passphrase.
+Anyone with this key and access to your encrypted Firebase data can recover the journal master key.
+`;
+  const blob = new Blob([text], {type:"text/plain;charset=utf-8"});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = "private-journal-recovery-key.txt";
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(()=>URL.revokeObjectURL(url),1000);
+});
+
+verifyRecoveryBtn.addEventListener("click", async ()=>{
+  if(!cryptoConfig || !initialMasterBytes) return;
+  verifyRecoveryBtn.disabled = true;
+  show(recoveryMessage);
+  showMessage(recoveryMessage, "Verifying locally…");
+
+  try{
+    const recoveryBytes = parseRecoveryKey(recoveryVerify.value);
+    const recoveryKey = await importRecoveryKey(recoveryBytes);
+    const recoveredMaster = await decryptBytes(
+      base64ToBytes(cryptoConfig.recoveryWrappedMaster),
+      base64ToBytes(cryptoConfig.recoveryIv),
+      recoveryKey
+    );
+
+    if(!equalBytes(recoveredMaster, initialMasterBytes)){
+      throw new Error("Recovered master key does not match.");
+    }
+
+    recoveryVerify.value = "";
+    showMessage(recoveryMessage, "Recovery Key verified ✓ Save it somewhere safe.", "ok");
+    show(unlockedSection);
+    showMessage(globalMessage, "Encryption setup and Recovery Key verification succeeded ✓", "ok");
+  }catch(err){
+    console.error(err);
+    showMessage(recoveryMessage, "Recovery Key did not verify. Check the copied key and try again.", "bad");
+    verifyRecoveryBtn.disabled = false;
+  }
+});
+
+unlockBtn.addEventListener("click", async ()=>{
+  if(!currentUser || !cryptoConfig || !unlockPass.value) return;
+  unlockBtn.disabled = true;
+  show(unlockMessage);
+  showMessage(unlockMessage, "Deriving key and decrypting locally…");
+
+  try{
+    const salt = base64ToBytes(cryptoConfig.passphraseSalt);
+    const passKey = await derivePassphraseKey(unlockPass.value, salt);
+    const masterBytes = await decryptBytes(
+      base64ToBytes(cryptoConfig.passphraseWrappedMaster),
+      base64ToBytes(cryptoConfig.passphraseIv),
+      passKey
+    );
+    unlockedMasterKey = await importMasterKey(masterBytes);
+    unlockPass.value = "";
+    hide(unlockSection);
+    show(unlockedSection);
+    showMessage(unlockMessage, "Unlocked ✓", "ok");
+    showMessage(globalMessage, "Journal master key exists only in this page's memory.", "ok");
+  }catch(err){
+    console.error(err);
+    showMessage(unlockMessage, "Wrong passphrase or corrupted encryption data.", "bad");
+    unlockBtn.disabled = false;
+  }
+});
+
+lockBtn.addEventListener("click", ()=>{
+  unlockedMasterKey = null;
+  initialMasterBytes = null;
+  shownRecoveryKey = null;
+  hide(unlockedSection);
+  hide(recoverySection);
+  if(cryptoConfig){
+    show(unlockSection);
+    unlockPass.focus();
+  }
+  showMessage(globalMessage, "Locked. Master key removed from page memory.");
+});
+
+onAuthStateChanged(auth, async user=>{
+  currentUser = user;
+  unlockedMasterKey = null;
+  initialMasterBytes = null;
+  shownRecoveryKey = null;
+  hide(setupSection);
+  hide(recoverySection);
+  hide(unlockSection);
+  hide(unlockedSection);
+
+  if(!user){
+    accountText.textContent = "Not signed in.";
+    show(signInBtn);
+    hide(signOutBtn);
+    showMessage(globalMessage, "Sign in to continue.");
+    return;
+  }
+
+  accountText.innerHTML =
+    "Signed in as <strong>" + (user.email || "Google account") +
+    "</strong><div class='account'>UID: " + user.uid + "</div>";
+  hide(signInBtn);
+  show(signOutBtn);
+  showMessage(globalMessage, "Checking encryption configuration…");
+
+  try{
+    const cfg = await loadConfig();
+    if(cfg){
+      show(unlockSection);
+      showMessage(globalMessage, "Encryption configuration found. Enter your Journal Passphrase.");
+    }else{
+      show(setupSection);
+      showMessage(globalMessage, "No encryption configuration exists yet. Create it below.");
+    }
+  }catch(err){
+    console.error(err);
+    showMessage(globalMessage, "Could not read encryption configuration: " + err.message, "bad");
   }
 });
 </script>
