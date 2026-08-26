@@ -8,7 +8,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="Private Journal">
 <link rel="manifest" href="./manifest.webmanifest">
-<title>Private Journal v1.6 — Limited Rich Paste</title>
+<title>Private Journal v1.6.1 — Two-row Toolbar</title>
 <style>
 :root{
   color-scheme:light dark;
@@ -161,14 +161,24 @@ input:focus,textarea:focus{border-color:var(--muted)}
 }
 .entry-title-input::placeholder{color:var(--muted);font-weight:650}
 .format-toolbar{
-  display:flex;align-items:center;gap:6px;overflow-x:auto;
+  display:flex;
+  flex-direction:column;
+  align-items:stretch;
+  gap:7px;
   padding:8px clamp(20px,5vw,70px);
   border-bottom:1px solid var(--border);
-  background:var(--panel);
-  -webkit-overflow-scrolling:touch;
-  scrollbar-width:none
+  background:var(--panel)
 }
-.format-toolbar::-webkit-scrollbar{display:none}
+.format-row{
+  display:flex;
+  align-items:center;
+  gap:6px;
+  flex-wrap:nowrap;
+  overflow:hidden
+}
+.format-row.sizes{
+  justify-content:flex-start
+}
 .format-btn{
   flex:0 0 auto;min-width:36px;min-height:34px;padding:6px 9px;
   border:1px solid var(--border);border-radius:8px;background:var(--soft);
@@ -178,9 +188,6 @@ input:focus,textarea:focus{border-color:var(--muted)}
 .format-btn .fmt-i{font-style:italic}
 .format-btn .fmt-u{text-decoration:underline}
 .format-btn .fmt-s{text-decoration:line-through}
-.format-divider{
-  width:1px;height:24px;background:var(--border);flex:0 0 1px;margin:0 2px
-}
 .format-btn.size-small{font-size:11px;font-weight:700}
 .format-btn.size-normal{font-size:13px;font-weight:750}
 .format-btn.size-large{font-size:15px;font-weight:800}
@@ -458,7 +465,7 @@ body.paste-open{overflow:hidden;overscroll-behavior:none}
         <button id="entriesTab" class="tab active">Entries</button>
         <button id="trashTab" class="tab">Trash</button>
       </div>
-      <div id="syncLine" class="syncline">Encrypted · loading… · v1.6</div>
+      <div id="syncLine" class="syncline">Encrypted · loading… · v1.6.1</div>
     </div>
     <div id="entryList" class="list"></div>
   </aside>
@@ -486,15 +493,18 @@ body.paste-open{overflow:hidden;overscroll-behavior:none}
         </div>
 
         <div id="formatToolbar" class="format-toolbar" role="toolbar" aria-label="Simple formatting">
-          <button class="format-btn" type="button" data-command="bold" title="Bold"><strong>B</strong></button>
-          <button class="format-btn" type="button" data-command="italic" title="Italic"><span class="fmt-i">I</span></button>
-          <button class="format-btn" type="button" data-command="underline" title="Underline"><span class="fmt-u">U</span></button>
-          <button class="format-btn" type="button" data-command="strikeThrough" title="Strikethrough"><span class="fmt-s">S</span></button>
-          <button class="format-btn" type="button" data-command="insertUnorderedList" title="Bullet list">• List</button>
-          <span class="format-divider" aria-hidden="true"></span>
-          <button class="format-btn size-small" type="button" data-size="small" title="Small text">Small</button>
-          <button class="format-btn size-normal" type="button" data-size="normal" title="Normal text">Normal</button>
-          <button class="format-btn size-large" type="button" data-size="large" title="Large text">Large</button>
+          <div class="format-row">
+            <button class="format-btn" type="button" data-command="bold" title="Bold"><strong>B</strong></button>
+            <button class="format-btn" type="button" data-command="italic" title="Italic"><span class="fmt-i">I</span></button>
+            <button class="format-btn" type="button" data-command="underline" title="Underline"><span class="fmt-u">U</span></button>
+            <button class="format-btn" type="button" data-command="strikeThrough" title="Strikethrough"><span class="fmt-s">S</span></button>
+            <button class="format-btn" type="button" data-command="insertUnorderedList" title="Bullet list">• List</button>
+          </div>
+          <div class="format-row sizes">
+            <button class="format-btn size-small" type="button" data-size="small" title="Small text">Small</button>
+            <button class="format-btn size-normal" type="button" data-size="normal" title="Normal text">Normal</button>
+            <button class="format-btn size-large" type="button" data-size="large" title="Large text">Large</button>
+          </div>
         </div>
 
         <div class="editor-scroll">
@@ -1171,7 +1181,7 @@ function visibleEntries(){
     .filter(e => currentView==="trash" ? e.trashed : !e.trashed)
     .sort((a,b)=>(a.order??0)-(b.order??0));
 }
-function setSync(text){ syncLine.textContent="Encrypted · "+text+" · v1.6"; }
+function setSync(text){ syncLine.textContent="Encrypted · "+text+" · v1.6.1"; }
 
 function timestampToMs(value){
   if(!value) return 0;
@@ -2220,7 +2230,7 @@ async function exportEncryptedBackup(){
     const payload={
       format:"private-journal-encrypted-backup",
       formatVersion:1,
-      appVersion:"1.6",
+      appVersion:"1.6.1",
       exportedAt:new Date().toISOString(),
       note:"Journal plaintext, Journal Passphrase, and Recovery Key are not included. Entry ciphertext and encrypted version history are included.",
       cryptoConfig:portableValue(cfgSnap.data()),
