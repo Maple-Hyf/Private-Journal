@@ -8,7 +8,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="Private Journal">
 <link rel="manifest" href="./manifest.webmanifest">
-<title>Private Journal v1.4.1 — Safer Trash Delete</title>
+<title>Private Journal v1.4.2 — History Scroll Fix</title>
 <style>
 :root{
   color-scheme:light dark;
@@ -33,6 +33,11 @@ body{
 button,input,textarea{font:inherit}
 button{cursor:pointer}
 .hidden{display:none!important}
+body.modal-open{
+  overflow:hidden;
+  overscroll-behavior:none;
+  touch-action:none;
+}
 
 /* Gate */
 .gate{
@@ -79,6 +84,21 @@ input:focus,textarea:focus{border-color:var(--muted)}
 .icon-btn{
   min-width:36px;min-height:36px;padding:7px 9px;border:1px solid var(--border);
   border-radius:9px;background:var(--soft);color:var(--text);font-weight:700
+}
+.lock-emphasis{
+  min-width:72px;
+  background:var(--text);
+  color:var(--bg);
+  border-color:var(--text);
+  font-weight:850;
+  letter-spacing:.01em;
+  box-shadow:0 2px 8px rgba(0,0,0,.10);
+}
+.lock-emphasis:hover{
+  transform:translateY(-1px);
+}
+.lock-emphasis:active{
+  transform:translateY(0);
 }
 .new-btn{
   width:100%;margin-top:12px;min-height:42px;border:0;border-radius:10px;
@@ -151,12 +171,17 @@ textarea{
 /* History */
 .history-overlay{
   position:fixed;inset:0;background:rgba(0,0,0,.38);z-index:30;
-  display:grid;place-items:center;padding:18px
+  display:grid;place-items:center;padding:18px;
+  overflow:hidden;
+  overscroll-behavior:contain;
+  touch-action:none
 }
 .history-card{
   width:min(920px,100%);height:min(720px,92dvh);background:var(--panel);
   border:1px solid var(--border);border-radius:18px;box-shadow:var(--shadow);
-  display:flex;flex-direction:column;overflow:hidden
+  display:flex;flex-direction:column;overflow:hidden;
+  touch-action:auto;
+  overscroll-behavior:contain
 }
 .history-head{
   padding:15px 16px;border-bottom:1px solid var(--border);
@@ -168,7 +193,10 @@ textarea{
   min-height:0;flex:1;display:grid;grid-template-columns:270px minmax(0,1fr)
 }
 .history-list{
-  min-height:0;overflow:auto;border-right:1px solid var(--border);padding:8px
+  min-height:0;overflow:auto;border-right:1px solid var(--border);padding:8px;
+  -webkit-overflow-scrolling:touch;
+  overscroll-behavior:contain;
+  touch-action:pan-y
 }
 .history-item{
   width:100%;text-align:left;border:1px solid transparent;border-radius:9px;
@@ -183,7 +211,11 @@ textarea{
 .history-preview{
   flex:1;min-height:0;width:100%;resize:none;border:1px solid var(--border);
   border-radius:11px;background:var(--bg);color:var(--text);padding:15px;
-  font-size:15px;line-height:1.65
+  font-size:15px;line-height:1.65;
+  overflow:auto;
+  -webkit-overflow-scrolling:touch;
+  overscroll-behavior:contain;
+  touch-action:pan-y
 }
 .history-footer{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
 .history-loading{padding:22px;color:var(--muted);font-size:12px;line-height:1.5}
@@ -331,7 +363,7 @@ textarea{
         <div class="brand">Private Journal</div>
         <div class="small-actions">
           <button id="backupBtn" class="icon-btn" title="Export encrypted backup">Backup</button>
-          <button id="lockBtn" class="icon-btn" title="Lock">Lock</button>
+          <button id="lockBtn" class="icon-btn lock-emphasis" title="Lock Journal">🔒 Lock</button>
         </div>
       </div>
       <button id="newEntryBtn" class="new-btn">+ New Entry</button>
@@ -339,7 +371,7 @@ textarea{
         <button id="entriesTab" class="tab active">Entries</button>
         <button id="trashTab" class="tab">Trash</button>
       </div>
-      <div id="syncLine" class="syncline">Encrypted · loading… · v1.4.1</div>
+      <div id="syncLine" class="syncline">Encrypted · loading… · v1.4.2</div>
     </div>
     <div id="entryList" class="list"></div>
   </aside>
@@ -750,7 +782,7 @@ function visibleEntries(){
     .filter(e => currentView==="trash" ? e.trashed : !e.trashed)
     .sort((a,b)=>(a.order??0)-(b.order??0));
 }
-function setSync(text){ syncLine.textContent="Encrypted · "+text+" · v1.4.1"; }
+function setSync(text){ syncLine.textContent="Encrypted · "+text+" · v1.4.2"; }
 
 function timestampToMs(value){
   if(!value) return 0;
@@ -1544,6 +1576,7 @@ function closeHistory(){
   historyCopyBtn.disabled=true;
   historyRestoreBtn.disabled=true;
   hide(historyModal);
+  document.body.classList.remove("modal-open");
 }
 
 function historyReasonLabel(reason){
@@ -1563,6 +1596,7 @@ async function openHistory(){
   if(!entry) return;
 
   historyEntryId=id;
+  document.body.classList.add("modal-open");
   show(historyModal);
   historySub.textContent=navigator.onLine
     ? "Loading complete encrypted history from Firebase…"
@@ -1761,7 +1795,7 @@ async function exportEncryptedBackup(){
     const payload={
       format:"private-journal-encrypted-backup",
       formatVersion:1,
-      appVersion:"1.4.1",
+      appVersion:"1.4.2",
       exportedAt:new Date().toISOString(),
       note:"Journal plaintext, Journal Passphrase, and Recovery Key are not included. Entry ciphertext and encrypted version history are included.",
       cryptoConfig:portableValue(cfgSnap.data()),
@@ -1792,6 +1826,12 @@ async function exportEncryptedBackup(){
 
 historyCloseBtn.addEventListener("click",closeHistory);
 historyModal.addEventListener("click",ev=>{ if(ev.target===historyModal) closeHistory(); });
+
+for(const eventName of ["wheel","touchmove"]){
+  historyModal.addEventListener(eventName,ev=>{
+    if(ev.target===historyModal) ev.preventDefault();
+  },{passive:false});
+}
 historyBtn.addEventListener("click",openHistory);
 historyCopyBtn.addEventListener("click",async()=>{
   if(!selectedHistoryVersionId) return;
