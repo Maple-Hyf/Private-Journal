@@ -8,7 +8,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="Private Journal">
 <link rel="manifest" href="./manifest.webmanifest">
-<title>Private Journal v1.5 — Simple Formatting</title>
+<title>Private Journal v1.6 — Limited Rich Paste</title>
 <style>
 :root{
   color-scheme:light dark;
@@ -178,6 +178,12 @@ input:focus,textarea:focus{border-color:var(--muted)}
 .format-btn .fmt-i{font-style:italic}
 .format-btn .fmt-u{text-decoration:underline}
 .format-btn .fmt-s{text-decoration:line-through}
+.format-divider{
+  width:1px;height:24px;background:var(--border);flex:0 0 1px;margin:0 2px
+}
+.format-btn.size-small{font-size:11px;font-weight:700}
+.format-btn.size-normal{font-size:13px;font-weight:750}
+.format-btn.size-large{font-size:15px;font-weight:800}
 .editor-scroll{flex:1;min-height:0;overflow:auto;-webkit-overflow-scrolling:touch}
 .editor-text{
   min-height:100%;outline:none;background:var(--bg);color:var(--text);
@@ -189,6 +195,12 @@ input:focus,textarea:focus{border-color:var(--muted)}
 }
 .editor-text ul{margin:.55em 0;padding-left:1.5em}
 .editor-text li{margin:.15em 0}
+.editor-text span[data-size="small"]{font-size:.86em}
+.editor-text span[data-size="normal"]{font-size:1em}
+.editor-text span[data-size="large"]{font-size:1.24em}
+.editor-text font[size="1"],.editor-text font[size="2"]{font-size:.86em}
+.editor-text font[size="3"],.editor-text font[size="4"]{font-size:1em}
+.editor-text font[size="5"],.editor-text font[size="6"],.editor-text font[size="7"]{font-size:1.24em}
 .editor-footer{
   min-height:34px;padding:7px clamp(20px,5vw,70px);
   border-top:1px solid var(--border);background:var(--panel);
@@ -198,6 +210,31 @@ input:focus,textarea:focus{border-color:var(--muted)}
 .placeholder{
   height:100%;display:grid;place-items:center;color:var(--muted);font-size:13px;text-align:center;padding:30px
 }
+.paste-overlay{
+  position:fixed;inset:0;background:rgba(0,0,0,.38);
+  display:grid;place-items:center;padding:20px;z-index:55;
+  overscroll-behavior:contain
+}
+.paste-card{
+  width:min(460px,100%);background:var(--panel);border:1px solid var(--border);
+  border-radius:16px;padding:20px;box-shadow:var(--shadow)
+}
+.paste-title{font-size:16px;font-weight:850;margin-bottom:7px}
+.paste-text{font-size:12px;color:var(--muted);line-height:1.55}
+.paste-options{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin-top:16px}
+.paste-option{
+  min-height:58px;border:1px solid var(--border);border-radius:11px;
+  background:var(--soft);color:var(--text);padding:10px 12px;
+  text-align:left;font-weight:800;line-height:1.2
+}
+.paste-option span{display:block;color:var(--muted);font-size:10px;font-weight:600;margin-top:5px;line-height:1.35}
+.paste-option:hover{background:var(--soft2)}
+.paste-cancel{
+  margin-top:10px;width:100%;min-height:38px;border:0;background:transparent;
+  color:var(--muted);font-weight:700
+}
+body.paste-open{overflow:hidden;overscroll-behavior:none}
+
 .guard{
   position:fixed;inset:0;background:rgba(0,0,0,.34);display:grid;place-items:center;
   padding:20px;z-index:20
@@ -263,6 +300,9 @@ input:focus,textarea:focus{border-color:var(--muted)}
 }
 .history-preview ul{margin:.5em 0;padding-left:1.5em}
 .history-preview li{margin:.15em 0}
+.history-preview span[data-size="small"]{font-size:.86em}
+.history-preview span[data-size="normal"]{font-size:1em}
+.history-preview span[data-size="large"]{font-size:1.24em}
 .history-footer{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
 .history-loading{padding:22px;color:var(--muted);font-size:12px;line-height:1.5}
 
@@ -355,6 +395,7 @@ input:focus,textarea:focus{border-color:var(--muted)}
   .history-list{border-right:0;border-bottom:1px solid var(--border)}
   .file-picker-row{align-items:flex-start;flex-direction:column}
   .file-name{width:100%;white-space:normal;overflow:visible}
+  .paste-options{grid-template-columns:1fr}
 }
 </style>
 </head>
@@ -417,7 +458,7 @@ input:focus,textarea:focus{border-color:var(--muted)}
         <button id="entriesTab" class="tab active">Entries</button>
         <button id="trashTab" class="tab">Trash</button>
       </div>
-      <div id="syncLine" class="syncline">Encrypted · loading… · v1.5</div>
+      <div id="syncLine" class="syncline">Encrypted · loading… · v1.6</div>
     </div>
     <div id="entryList" class="list"></div>
   </aside>
@@ -450,6 +491,10 @@ input:focus,textarea:focus{border-color:var(--muted)}
           <button class="format-btn" type="button" data-command="underline" title="Underline"><span class="fmt-u">U</span></button>
           <button class="format-btn" type="button" data-command="strikeThrough" title="Strikethrough"><span class="fmt-s">S</span></button>
           <button class="format-btn" type="button" data-command="insertUnorderedList" title="Bullet list">• List</button>
+          <span class="format-divider" aria-hidden="true"></span>
+          <button class="format-btn size-small" type="button" data-size="small" title="Small text">Small</button>
+          <button class="format-btn size-normal" type="button" data-size="normal" title="Normal text">Normal</button>
+          <button class="format-btn size-large" type="button" data-size="large" title="Large text">Large</button>
         </div>
 
         <div class="editor-scroll">
@@ -558,6 +603,30 @@ input:focus,textarea:focus{border-color:var(--muted)}
   </div>
 </div>
 
+
+<div id="pasteModal" class="paste-overlay hidden">
+  <div class="paste-card">
+    <div class="paste-title">Paste text</div>
+    <div class="paste-text">
+      Choose how much formatting to keep. Emoji and line breaks are preserved in both modes.
+    </div>
+
+    <div class="paste-options">
+      <button id="pasteFormattedBtn" class="paste-option" type="button">
+        Keep simple formatting
+        <span>Bold · italic · underline · strikethrough · bullets · Small/Normal/Large</span>
+      </button>
+
+      <button id="pastePlainBtn" class="paste-option" type="button">
+        Plain text
+        <span>Text · line breaks · emoji only</span>
+      </button>
+    </div>
+
+    <button id="pasteCancelBtn" class="paste-cancel" type="button">Cancel</button>
+  </div>
+</div>
+
 <div id="guard" class="guard hidden">
   <div class="guard-card">
     <div id="guardTitle" class="guard-title"></div>
@@ -616,6 +685,7 @@ const syncLine = $("syncLine"), entryList = $("entryList"), editorTitle = $("edi
 const editorText = $("editorText"), editorPlaceholder = $("editorPlaceholder"), editorActions = $("editorActions");
 const editorWorkspace = $("editorWorkspace"), entryTitleInput = $("entryTitleInput"), formatToolbar = $("formatToolbar");
 const wordCount = $("wordCount"), charCount = $("charCount");
+const pasteModal = $("pasteModal"), pasteFormattedBtn = $("pasteFormattedBtn"), pastePlainBtn = $("pastePlainBtn"), pasteCancelBtn = $("pasteCancelBtn");
 const historyBtn = $("historyBtn"), copyActiveBtn = $("copyActiveBtn"), trashActiveBtn = $("trashActiveBtn"), mobileBackBtn = $("mobileBackBtn");
 const historyModal = $("historyModal"), historySub = $("historySub"), historyList = $("historyList");
 const historyPreviewMeta = $("historyPreviewMeta"), historyPreview = $("historyPreview");
@@ -653,7 +723,9 @@ let restoreChecksum = null;
 let restoreVerified = false;
 let restoreCanCommit = false;
 let restoreResume = false;
-let savedEditorRange = null;
+let pendingPasteHtml = "";
+let pendingPasteText = "";
+let pendingPasteRange = null;
 
 function show(el){ el.classList.remove("hidden"); }
 function hide(el){ el.classList.add("hidden"); }
@@ -704,9 +776,80 @@ function plainTextToHtml(text){
   ).join("");
 }
 
+function normalizeSizeToken(node){
+  const tag=node.tagName.toUpperCase();
+
+  if(tag==="SMALL") return "small";
+  if(tag==="BIG" || /^H[1-3]$/.test(tag)) return "large";
+  if(/^H[4-6]$/.test(tag)) return "normal";
+
+  if(tag==="FONT"){
+    const size=parseInt(node.getAttribute("size") || "3",10);
+    if(size<=2) return "small";
+    if(size>=5) return "large";
+    return "normal";
+  }
+
+  const explicit=node.getAttribute("data-size");
+  if(["small","normal","large"].includes(explicit)) return explicit;
+
+  const style=node.getAttribute("style") || "";
+  const match=style.match(/font-size\s*:\s*([^;]+)/i);
+  if(!match) return null;
+
+  const raw=match[1].trim().toLowerCase();
+
+  if(["small","x-small","xx-small","smaller"].includes(raw)) return "small";
+  if(["large","x-large","xx-large","larger"].includes(raw)) return "large";
+  if(["medium","normal"].includes(raw)) return "normal";
+
+  const number=parseFloat(raw);
+  if(!Number.isFinite(number)) return null;
+
+  if(raw.endsWith("px")){
+    if(number<=14) return "small";
+    if(number>=20) return "large";
+    return "normal";
+  }
+  if(raw.endsWith("pt")){
+    if(number<=10.5) return "small";
+    if(number>=15) return "large";
+    return "normal";
+  }
+  if(raw.endsWith("em") || raw.endsWith("rem")){
+    if(number<=0.9) return "small";
+    if(number>=1.18) return "large";
+    return "normal";
+  }
+  if(raw.endsWith("%")){
+    if(number<=90) return "small";
+    if(number>=118) return "large";
+    return "normal";
+  }
+
+  return null;
+}
+
+function wrapWithSize(node,sizeToken){
+  if(!sizeToken) return node;
+  const span=document.createElement("span");
+  span.dataset.size=sizeToken;
+  span.appendChild(node);
+  return span;
+}
+
 function sanitizeRichHtml(inputHtml){
   const template=document.createElement("template");
   template.innerHTML=String(inputHtml || "");
+
+  function cleanChildren(node){
+    const frag=document.createDocumentFragment();
+    for(const child of [...node.childNodes]){
+      const cleaned=cleanNode(child);
+      if(cleaned) frag.appendChild(cleaned);
+    }
+    return frag;
+  }
 
   function cleanNode(node){
     if(node.nodeType===Node.TEXT_NODE){
@@ -715,23 +858,33 @@ function sanitizeRichHtml(inputHtml){
     if(node.nodeType!==Node.ELEMENT_NODE) return null;
 
     const tag=node.tagName.toUpperCase();
-    if(["SCRIPT","STYLE","IFRAME","OBJECT","EMBED","LINK","META"].includes(tag)){
-      return null;
+    if(["SCRIPT","STYLE","IFRAME","OBJECT","EMBED","LINK","META","IMG","VIDEO","AUDIO","TABLE","THEAD","TBODY","TR","TD","TH"].includes(tag)){
+      // Drop the container styling/structure, but keep readable child text where appropriate.
+      if(["SCRIPT","STYLE","IFRAME","OBJECT","EMBED","LINK","META","IMG","VIDEO","AUDIO"].includes(tag)) return null;
+      return cleanChildren(node);
     }
 
-    let out;
-    const mapped={STRONG:"B",EM:"I",STRIKE:"S"};
-    const safeTag=mapped[tag] || tag;
+    const mapped={STRONG:"B",EM:"I",STRIKE:"S",DEL:"S"};
+    let safeTag=mapped[tag] || tag;
+
+    // Ordered lists are deliberately normalized into the one supported list type.
+    if(safeTag==="OL") safeTag="UL";
+
     const allowed=new Set(["B","I","U","S","UL","LI","BR","DIV","P"]);
+    const sizeToken=normalizeSizeToken(node);
 
     if(allowed.has(safeTag)){
-      out=document.createElement(safeTag.toLowerCase());
-    }else if(tag==="SPAN"){
-      let inner=document.createDocumentFragment();
-      for(const child of [...node.childNodes]){
-        const cleaned=cleanNode(child);
-        if(cleaned) inner.appendChild(cleaned);
+      const out=document.createElement(safeTag.toLowerCase());
+
+      if(safeTag!=="BR"){
+        out.appendChild(cleanChildren(node));
       }
+
+      return wrapWithSize(out,sizeToken);
+    }
+
+    if(["SPAN","FONT","SMALL","BIG"].includes(tag) || /^H[1-6]$/.test(tag)){
+      let inner=cleanChildren(node);
 
       const style=(node.getAttribute("style") || "").toLowerCase();
       const wrappers=[];
@@ -746,23 +899,13 @@ function sanitizeRichHtml(inputHtml){
         el.appendChild(wrapped);
         wrapped=el;
       }
-      return wrapped;
-    }else{
-      const frag=document.createDocumentFragment();
-      for(const child of [...node.childNodes]){
-        const cleaned=cleanNode(child);
-        if(cleaned) frag.appendChild(cleaned);
-      }
-      return frag;
+
+      return wrapWithSize(wrapped,sizeToken);
     }
 
-    if(safeTag!=="BR"){
-      for(const child of [...node.childNodes]){
-        const cleaned=cleanNode(child);
-        if(cleaned) out.appendChild(cleaned);
-      }
-    }
-    return out;
+    // Links, blockquotes, alignment wrappers, custom div-like elements, etc:
+    // keep the readable content but remove unsupported presentation.
+    return wrapWithSize(cleanChildren(node),sizeToken);
   }
 
   const clean=document.createElement("div");
@@ -796,7 +939,7 @@ function richHtmlToPlainText(html){
 }
 
 function normalizeEntryPayload(obj){
-  if(obj && obj.format==="simple-rich-v1"){
+  if(obj && (obj.format==="simple-rich-v1" || obj.format==="simple-rich-v2")){
     const bodyHtml=sanitizeRichHtml(typeof obj.bodyHtml==="string" ? obj.bodyHtml : "");
     return {
       title:typeof obj.title==="string" ? obj.title : "",
@@ -815,7 +958,7 @@ async function encryptEntryPayload(title,bodyHtml){
   const iv=crypto.getRandomValues(new Uint8Array(12));
   const cleanHtml=sanitizeRichHtml(bodyHtml);
   const payload={
-    format:"simple-rich-v1",
+    format:"simple-rich-v2",
     title:String(title || ""),
     bodyHtml:cleanHtml
   };
@@ -1028,7 +1171,7 @@ function visibleEntries(){
     .filter(e => currentView==="trash" ? e.trashed : !e.trashed)
     .sort((a,b)=>(a.order??0)-(b.order??0));
 }
-function setSync(text){ syncLine.textContent="Encrypted · "+text+" · v1.5"; }
+function setSync(text){ syncLine.textContent="Encrypted · "+text+" · v1.6"; }
 
 function timestampToMs(value){
   if(!value) return 0;
@@ -1112,7 +1255,6 @@ function hardLock(){
   masterKey=null;
   currentDraft="";
   currentTitle="";
-  savedEditorRange=null;
   dirty=false;
   currentEntryId=null;
   entries.clear();
@@ -1129,6 +1271,7 @@ function hardLock(){
   document.body.classList.remove("editor-open");
   closeHistory();
   closeRestoreModal();
+  closePasteModal();
   cancelGuard();
 }
 
@@ -1349,7 +1492,6 @@ async function selectEntry(id){
   updateEditorHeader();
   renderList();
   document.body.classList.add("editor-open");
-  savedEditorRange=null;
 }
 
 function updateEditorHeader(){
@@ -1365,6 +1507,7 @@ function updateEditorHeader(){
 
 function closeEditor(){
   closeHistory();
+  closePasteModal();
   currentEntryId=null; currentDraft=""; currentTitle=""; dirty=false;
   editorText.innerHTML=""; entryTitleInput.value=""; updateCounts("");
   hide(editorWorkspace); show(editorPlaceholder); hide(editorActions);
@@ -2077,7 +2220,7 @@ async function exportEncryptedBackup(){
     const payload={
       format:"private-journal-encrypted-backup",
       formatVersion:1,
-      appVersion:"1.5",
+      appVersion:"1.6",
       exportedAt:new Date().toISOString(),
       note:"Journal plaintext, Journal Passphrase, and Recovery Key are not included. Entry ciphertext and encrypted version history are included.",
       cryptoConfig:portableValue(cfgSnap.data()),
@@ -2194,26 +2337,67 @@ newEntryBtn.addEventListener("click",createEntry);
 lockBtn.addEventListener("click",async()=>{try{await flushSave()}finally{hardLock()}});
 mobileBackBtn.addEventListener("click",async()=>{await flushSave();document.body.classList.remove("editor-open")});
 
-function rememberEditorSelection(){
+function closePasteModal(){
+  pendingPasteHtml="";
+  pendingPasteText="";
+  pendingPasteRange=null;
+  hide(pasteModal);
+  document.body.classList.remove("paste-open");
+}
+
+function restorePendingPasteRange(){
+  if(!pendingPasteRange) return null;
   const sel=window.getSelection();
-  if(!sel || !sel.rangeCount) return;
-  const range=sel.getRangeAt(0);
-  if(editorText.contains(range.commonAncestorContainer)){
-    savedEditorRange=range.cloneRange();
+  if(!sel) return null;
+
+  sel.removeAllRanges();
+  sel.addRange(pendingPasteRange);
+  return pendingPasteRange;
+}
+
+function insertHtmlAtPendingRange(html){
+  const range=restorePendingPasteRange();
+  if(!range) return;
+
+  range.deleteContents();
+
+  const fragment=range.createContextualFragment(html);
+  const lastNode=fragment.lastChild;
+  range.insertNode(fragment);
+
+  if(lastNode){
+    const sel=window.getSelection();
+    const caret=document.createRange();
+    caret.setStartAfter(lastNode);
+    caret.collapse(true);
+    sel.removeAllRanges();
+    sel.addRange(caret);
   }
 }
 
-function restoreEditorSelection(){
-  if(!savedEditorRange) return;
-  const sel=window.getSelection();
-  if(!sel) return;
-  try{
-    sel.removeAllRanges();
-    sel.addRange(savedEditorRange);
-  }catch{}
+function pasteAsSimpleFormatting(){
+  let html=pendingPasteHtml;
+
+  // Some mobile apps expose only text/plain. In that case, this option still
+  // behaves safely and simply preserves the plain text + emoji + line breaks.
+  if(!html){
+    html=plainTextToHtml(pendingPasteText);
+  }
+
+  const clean=sanitizeRichHtml(html);
+  insertHtmlAtPendingRange(clean);
+  closePasteModal();
+  handleEditorInput();
+  editorText.focus();
 }
 
-document.addEventListener("selectionchange",rememberEditorSelection);
+function pasteAsPlainText(){
+  const clean=plainTextToHtml(pendingPasteText);
+  insertHtmlAtPendingRange(clean);
+  closePasteModal();
+  handleEditorInput();
+  editorText.focus();
+}
 
 function handleEditorInput(){
   currentDraft=editorText.innerHTML;
@@ -2241,53 +2425,55 @@ entryTitleInput.addEventListener("input",()=>{
   renderList();
 });
 
-// Paste external content as plain text so fonts/colors/links cannot enter the journal.
+// Capture both clipboard representations immediately, then let the user choose
+// which whitelist to apply. This works even after the modal itself takes focus.
 editorText.addEventListener("paste",event=>{
   event.preventDefault();
-  const plain=event.clipboardData?.getData("text/plain") || "";
+
   const sel=window.getSelection();
   if(!sel || !sel.rangeCount) return;
 
-  const range=sel.getRangeAt(0);
-  range.deleteContents();
+  pendingPasteHtml=event.clipboardData?.getData("text/html") || "";
+  pendingPasteText=event.clipboardData?.getData("text/plain") || "";
+  pendingPasteRange=sel.getRangeAt(0).cloneRange();
 
-  const frag=document.createDocumentFragment();
-  const lines=plain.split(/\r?\n/);
-  lines.forEach((line,index)=>{
-    if(index>0) frag.appendChild(document.createElement("br"));
-    frag.appendChild(document.createTextNode(line));
-  });
-
-  const last=frag.lastChild;
-  range.insertNode(frag);
-  if(last){
-    range.setStartAfter(last);
-    range.collapse(true);
-    sel.removeAllRanges();
-    sel.addRange(range);
-  }
-  handleEditorInput();
+  document.body.classList.add("paste-open");
+  show(pasteModal);
 });
 
-// Browser editing commands are intentionally limited to the five requested formats.
+pasteFormattedBtn.addEventListener("click",pasteAsSimpleFormatting);
+pastePlainBtn.addEventListener("click",pasteAsPlainText);
+pasteCancelBtn.addEventListener("click",closePasteModal);
+pasteModal.addEventListener("click",event=>{
+  if(event.target===pasteModal) closePasteModal();
+});
+
+// Editing is deliberately limited to the approved lightweight format set.
 formatToolbar.addEventListener("pointerdown",event=>{
-  const button=event.target.closest("[data-command]");
+  const button=event.target.closest("[data-command],[data-size]");
   if(!button) return;
   event.preventDefault();
 
   editorText.focus();
-  restoreEditorSelection();
-  const command=button.dataset.command;
 
   try{
-    // Keep HTML semantic rather than CSS-heavy where the browser supports it.
+    if(button.dataset.size){
+      const sizeMap={small:"2",normal:"3",large:"5"};
+      document.execCommand("fontSize",false,sizeMap[button.dataset.size] || "3");
+      handleEditorInput();
+      return;
+    }
+
+    const command=button.dataset.command;
+
+    // Keep bold/italic/underline/strike semantic rather than CSS-heavy.
     if(document.queryCommandSupported?.("styleWithCSS")){
       document.execCommand("styleWithCSS",false,false);
     }
     document.execCommand(command,false,null);
     handleEditorInput();
   }catch(err){
-    console.warn("Formatting command failed:",command,err);
+    console.warn("Formatting command failed:",button.dataset.command || button.dataset.size,err);
   }
 });
 
@@ -2359,7 +2545,7 @@ onAuthStateChanged(auth,async user=>{
   currentUser=user;
   masterKey=null;
   if(unsubscribeEntries){unsubscribeEntries();unsubscribeEntries=null}
-  entries.clear();currentEntryId=null;currentDraft="";currentTitle="";dirty=false;
+  entries.clear();currentEntryId=null;currentDraft="";dirty=false;
 
   if(!user){
     hide(unlockGate);hide(appView);show(authGate);
