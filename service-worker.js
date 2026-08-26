@@ -1,4 +1,4 @@
-const SHELL_CACHE = "private-journal-shell-v1.4";
+const SHELL_CACHE = "private-journal-shell-v1.5";
 const SHELL_FILES = [
   "./",
   "./index.html",

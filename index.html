@@ -8,7 +8,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="Private Journal">
 <link rel="manifest" href="./manifest.webmanifest">
-<title>Private Journal v1.4.2 — History Scroll Fix</title>
+<title>Private Journal v1.5 — Simple Formatting</title>
 <style>
 :root{
   color-scheme:light dark;
@@ -148,10 +148,52 @@ input:focus,textarea:focus{border-color:var(--muted)}
 .editor-title{font-size:14px;font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .editor-time{font-size:11px;color:var(--muted);margin-top:3px}
 .editor-actions{display:flex;gap:7px;flex-shrink:0}
-.editor-body{flex:1;min-height:0;padding:0}
-textarea{
-  width:100%;height:100%;resize:none;border:0;outline:none;background:var(--bg);
-  color:var(--text);padding:28px clamp(20px,5vw,70px);font-size:17px;line-height:1.72
+.editor-body{flex:1;min-height:0;padding:0;display:flex;flex-direction:column}
+.editor-workspace{height:100%;min-height:0;display:flex;flex-direction:column}
+.entry-title-wrap{
+  padding:18px clamp(20px,5vw,70px) 10px;
+  border-bottom:1px solid var(--border)
+}
+.entry-title-input{
+  width:100%;min-height:42px;padding:8px 0;border:0;border-radius:0;
+  background:transparent;color:var(--text);font-size:20px;font-weight:800;
+  letter-spacing:-.2px;outline:none
+}
+.entry-title-input::placeholder{color:var(--muted);font-weight:650}
+.format-toolbar{
+  display:flex;align-items:center;gap:6px;overflow-x:auto;
+  padding:8px clamp(20px,5vw,70px);
+  border-bottom:1px solid var(--border);
+  background:var(--panel);
+  -webkit-overflow-scrolling:touch;
+  scrollbar-width:none
+}
+.format-toolbar::-webkit-scrollbar{display:none}
+.format-btn{
+  flex:0 0 auto;min-width:36px;min-height:34px;padding:6px 9px;
+  border:1px solid var(--border);border-radius:8px;background:var(--soft);
+  color:var(--text);font-size:13px;font-weight:750;line-height:1
+}
+.format-btn:hover{background:var(--soft2)}
+.format-btn .fmt-i{font-style:italic}
+.format-btn .fmt-u{text-decoration:underline}
+.format-btn .fmt-s{text-decoration:line-through}
+.editor-scroll{flex:1;min-height:0;overflow:auto;-webkit-overflow-scrolling:touch}
+.editor-text{
+  min-height:100%;outline:none;background:var(--bg);color:var(--text);
+  padding:24px clamp(20px,5vw,70px);font-size:17px;line-height:1.72;
+  white-space:pre-wrap;overflow-wrap:anywhere
+}
+.editor-text:empty::before{
+  content:attr(data-placeholder);color:var(--muted);pointer-events:none
+}
+.editor-text ul{margin:.55em 0;padding-left:1.5em}
+.editor-text li{margin:.15em 0}
+.editor-footer{
+  min-height:34px;padding:7px clamp(20px,5vw,70px);
+  border-top:1px solid var(--border);background:var(--panel);
+  display:flex;align-items:center;justify-content:flex-end;gap:12px;
+  color:var(--muted);font-size:11px
 }
 .placeholder{
   height:100%;display:grid;place-items:center;color:var(--muted);font-size:13px;text-align:center;padding:30px
@@ -209,14 +251,18 @@ textarea{
 .history-preview-wrap{min-width:0;min-height:0;display:flex;flex-direction:column;padding:14px}
 .history-preview-meta{font-size:11px;color:var(--muted);margin-bottom:9px}
 .history-preview{
-  flex:1;min-height:0;width:100%;resize:none;border:1px solid var(--border);
+  flex:1;min-height:0;width:100%;border:1px solid var(--border);
   border-radius:11px;background:var(--bg);color:var(--text);padding:15px;
   font-size:15px;line-height:1.65;
   overflow:auto;
   -webkit-overflow-scrolling:touch;
   overscroll-behavior:contain;
-  touch-action:pan-y
+  touch-action:pan-y;
+  white-space:pre-wrap;
+  overflow-wrap:anywhere
 }
+.history-preview ul{margin:.5em 0;padding-left:1.5em}
+.history-preview li{margin:.15em 0}
 .history-footer{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
 .history-loading{padding:22px;color:var(--muted);font-size:12px;line-height:1.5}
 
@@ -371,7 +417,7 @@ textarea{
         <button id="entriesTab" class="tab active">Entries</button>
         <button id="trashTab" class="tab">Trash</button>
       </div>
-      <div id="syncLine" class="syncline">Encrypted · loading… · v1.4.2</div>
+      <div id="syncLine" class="syncline">Encrypted · loading… · v1.5</div>
     </div>
     <div id="entryList" class="list"></div>
   </aside>
@@ -391,7 +437,31 @@ textarea{
     </header>
     <div class="editor-body">
       <div id="editorPlaceholder" class="placeholder">Create or select an entry.</div>
-      <textarea id="editorText" class="hidden" spellcheck="true"></textarea>
+
+      <div id="editorWorkspace" class="editor-workspace hidden">
+        <div class="entry-title-wrap">
+          <input id="entryTitleInput" class="entry-title-input" type="text"
+                 autocomplete="off" placeholder="Optional title">
+        </div>
+
+        <div id="formatToolbar" class="format-toolbar" role="toolbar" aria-label="Simple formatting">
+          <button class="format-btn" type="button" data-command="bold" title="Bold"><strong>B</strong></button>
+          <button class="format-btn" type="button" data-command="italic" title="Italic"><span class="fmt-i">I</span></button>
+          <button class="format-btn" type="button" data-command="underline" title="Underline"><span class="fmt-u">U</span></button>
+          <button class="format-btn" type="button" data-command="strikeThrough" title="Strikethrough"><span class="fmt-s">S</span></button>
+          <button class="format-btn" type="button" data-command="insertUnorderedList" title="Bullet list">• List</button>
+        </div>
+
+        <div class="editor-scroll">
+          <div id="editorText" class="editor-text" contenteditable="true"
+               spellcheck="true" data-placeholder="Write anything…"></div>
+        </div>
+
+        <div class="editor-footer">
+          <span id="wordCount">Words 0</span>
+          <span id="charCount">Characters 0</span>
+        </div>
+      </div>
     </div>
   </main>
 </section>
@@ -478,7 +548,7 @@ textarea{
       </div>
       <div class="history-preview-wrap">
         <div id="historyPreviewMeta" class="history-preview-meta">Select a version.</div>
-        <textarea id="historyPreview" class="history-preview" readonly></textarea>
+        <div id="historyPreview" class="history-preview" aria-label="Historical version preview"></div>
         <div class="history-footer">
           <button id="historyCopyBtn" class="btn secondary" disabled>Copy version</button>
           <button id="historyRestoreBtn" class="btn" disabled>Restore as new version</button>
@@ -544,6 +614,8 @@ const passphraseBox = $("passphraseBox"), recoveryBox = $("recoveryBox"), gateSi
 const lockBtn = $("lockBtn"), backupBtn = $("backupBtn"), newEntryBtn = $("newEntryBtn"), entriesTab = $("entriesTab"), trashTab = $("trashTab");
 const syncLine = $("syncLine"), entryList = $("entryList"), editorTitle = $("editorTitle"), editorTime = $("editorTime");
 const editorText = $("editorText"), editorPlaceholder = $("editorPlaceholder"), editorActions = $("editorActions");
+const editorWorkspace = $("editorWorkspace"), entryTitleInput = $("entryTitleInput"), formatToolbar = $("formatToolbar");
+const wordCount = $("wordCount"), charCount = $("charCount");
 const historyBtn = $("historyBtn"), copyActiveBtn = $("copyActiveBtn"), trashActiveBtn = $("trashActiveBtn"), mobileBackBtn = $("mobileBackBtn");
 const historyModal = $("historyModal"), historySub = $("historySub"), historyList = $("historyList");
 const historyPreviewMeta = $("historyPreviewMeta"), historyPreview = $("historyPreview");
@@ -565,6 +637,7 @@ let currentView = "entries";
 let unsubscribeEntries = null;
 let saveTimer = null;
 let currentDraft = "";
+let currentTitle = "";
 let dirty = false;
 let guardTimer = null;
 let guardAction = null;
@@ -580,6 +653,7 @@ let restoreChecksum = null;
 let restoreVerified = false;
 let restoreCanCommit = false;
 let restoreResume = false;
+let savedEditorRange = null;
 
 function show(el){ el.classList.remove("hidden"); }
 function hide(el){ el.classList.add("hidden"); }
@@ -614,22 +688,150 @@ async function importAesKey(bytes,usage=["encrypt","decrypt"]){
 async function decryptBytes(ciphertext,iv,key){
   return new Uint8Array(await crypto.subtle.decrypt({name:"AES-GCM",iv},key,ciphertext));
 }
-async function encryptText(text){
-  const iv=crypto.getRandomValues(new Uint8Array(12));
-  const plaintext=new TextEncoder().encode(JSON.stringify({body:text}));
-  const ciphertext=new Uint8Array(await crypto.subtle.encrypt({name:"AES-GCM",iv},masterKey,plaintext));
-  return {iv:b64(iv),ciphertext:b64(ciphertext)};
+function escapeHtml(text){
+  return String(text)
+    .replace(/&/g,"&amp;")
+    .replace(/</g,"&lt;")
+    .replace(/>/g,"&gt;")
+    .replace(/"/g,"&quot;")
+    .replace(/'/g,"&#039;");
 }
+
+function plainTextToHtml(text){
+  if(!text) return "";
+  return String(text).split(/\r?\n/).map(line =>
+    `<div>${line ? escapeHtml(line) : "<br>"}</div>`
+  ).join("");
+}
+
+function sanitizeRichHtml(inputHtml){
+  const template=document.createElement("template");
+  template.innerHTML=String(inputHtml || "");
+
+  function cleanNode(node){
+    if(node.nodeType===Node.TEXT_NODE){
+      return document.createTextNode(node.nodeValue || "");
+    }
+    if(node.nodeType!==Node.ELEMENT_NODE) return null;
+
+    const tag=node.tagName.toUpperCase();
+    if(["SCRIPT","STYLE","IFRAME","OBJECT","EMBED","LINK","META"].includes(tag)){
+      return null;
+    }
+
+    let out;
+    const mapped={STRONG:"B",EM:"I",STRIKE:"S"};
+    const safeTag=mapped[tag] || tag;
+    const allowed=new Set(["B","I","U","S","UL","LI","BR","DIV","P"]);
+
+    if(allowed.has(safeTag)){
+      out=document.createElement(safeTag.toLowerCase());
+    }else if(tag==="SPAN"){
+      let inner=document.createDocumentFragment();
+      for(const child of [...node.childNodes]){
+        const cleaned=cleanNode(child);
+        if(cleaned) inner.appendChild(cleaned);
+      }
+
+      const style=(node.getAttribute("style") || "").toLowerCase();
+      const wrappers=[];
+      if(/font-weight\s*:\s*(bold|[6-9]00)/.test(style)) wrappers.push("b");
+      if(/font-style\s*:\s*italic/.test(style)) wrappers.push("i");
+      if(/text-decoration[^:]*:\s*[^;]*underline/.test(style)) wrappers.push("u");
+      if(/text-decoration[^:]*:\s*[^;]*(line-through|strike)/.test(style)) wrappers.push("s");
+
+      let wrapped=inner;
+      for(const w of wrappers){
+        const el=document.createElement(w);
+        el.appendChild(wrapped);
+        wrapped=el;
+      }
+      return wrapped;
+    }else{
+      const frag=document.createDocumentFragment();
+      for(const child of [...node.childNodes]){
+        const cleaned=cleanNode(child);
+        if(cleaned) frag.appendChild(cleaned);
+      }
+      return frag;
+    }
+
+    if(safeTag!=="BR"){
+      for(const child of [...node.childNodes]){
+        const cleaned=cleanNode(child);
+        if(cleaned) out.appendChild(cleaned);
+      }
+    }
+    return out;
+  }
+
+  const clean=document.createElement("div");
+  for(const child of [...template.content.childNodes]){
+    const cleaned=cleanNode(child);
+    if(cleaned) clean.appendChild(cleaned);
+  }
+  return clean.innerHTML;
+}
+
+function richHtmlToPlainText(html){
+  const holder=document.createElement("div");
+  holder.innerHTML=sanitizeRichHtml(html);
+
+  function walk(node){
+    if(node.nodeType===Node.TEXT_NODE) return node.nodeValue || "";
+    if(node.nodeType!==Node.ELEMENT_NODE) return "";
+
+    const tag=node.tagName.toUpperCase();
+    if(tag==="BR") return "\n";
+
+    let text="";
+    if(tag==="LI") text+="• ";
+    for(const child of node.childNodes) text+=walk(child);
+
+    if(["DIV","P","LI"].includes(tag) && !text.endsWith("\n")) text+="\n";
+    return text;
+  }
+
+  return walk(holder).replace(/\n{3,}/g,"\n\n").replace(/\n+$/,"");
+}
+
+function normalizeEntryPayload(obj){
+  if(obj && obj.format==="simple-rich-v1"){
+    const bodyHtml=sanitizeRichHtml(typeof obj.bodyHtml==="string" ? obj.bodyHtml : "");
+    return {
+      title:typeof obj.title==="string" ? obj.title : "",
+      bodyHtml,
+      plainText:richHtmlToPlainText(bodyHtml)
+    };
+  }
+
+  // Backward compatibility with all pre-v1.5 plain-text versions.
+  const legacyBody=obj && typeof obj.body==="string" ? obj.body : "";
+  const bodyHtml=plainTextToHtml(legacyBody);
+  return {title:"",bodyHtml,plainText:legacyBody};
+}
+
+async function encryptEntryPayload(title,bodyHtml){
+  const iv=crypto.getRandomValues(new Uint8Array(12));
+  const cleanHtml=sanitizeRichHtml(bodyHtml);
+  const payload={
+    format:"simple-rich-v1",
+    title:String(title || ""),
+    bodyHtml:cleanHtml
+  };
+  const plaintext=new TextEncoder().encode(JSON.stringify(payload));
+  const ciphertext=new Uint8Array(await crypto.subtle.encrypt({name:"AES-GCM",iv},masterKey,plaintext));
+  return {iv:b64(iv),ciphertext:b64(ciphertext),payload:normalizeEntryPayload(payload)};
+}
+
 async function decryptPayload(iv,ciphertext){
   const bytes=await decryptBytes(unb64(ciphertext),unb64(iv),masterKey);
-  const obj=JSON.parse(new TextDecoder().decode(bytes));
-  return typeof obj.body==="string" ? obj.body : "";
+  return normalizeEntryPayload(JSON.parse(new TextDecoder().decode(bytes)));
 }
 
 async function decryptPayloadWithKey(iv,ciphertext,key){
   const bytes=await decryptBytes(unb64(ciphertext),unb64(iv),key);
-  const obj=JSON.parse(new TextDecoder().decode(bytes));
-  return typeof obj.body==="string" ? obj.body : "";
+  return normalizeEntryPayload(JSON.parse(new TextDecoder().decode(bytes)));
 }
 
 async function unwrapMasterFromBackupWithPassphrase(cfg,passphrase){
@@ -767,9 +969,53 @@ function versionsCol(id){ return collection(db,"users",currentUser.uid,"entries"
 function versionRef(entryId,versionId){ return doc(db,"users",currentUser.uid,"entries",entryId,"versions",versionId); }
 function makeId(){ return crypto.randomUUID(); }
 
-function titleFromBody(body){
-  const first=body.split(/\r?\n/).find(line=>line.trim().length>0);
-  return first ? first.trim() : "(Untitled)";
+function titleFromPlainText(text){
+  const first=String(text || "").split(/\r?\n/).find(line=>line.trim().length>0);
+  if(!first) return "(Untitled)";
+  return first.trim().replace(/^[•*-]\s*/,"") || "(Untitled)";
+}
+
+function displayTitle(entry){
+  const custom=String(entry?.title || "").trim();
+  return custom || titleFromPlainText(entry?.plainText || "");
+}
+
+const wordSegmenter = typeof Intl!=="undefined" && Intl.Segmenter
+  ? new Intl.Segmenter(undefined,{granularity:"word"})
+  : null;
+const graphemeSegmenter = typeof Intl!=="undefined" && Intl.Segmenter
+  ? new Intl.Segmenter(undefined,{granularity:"grapheme"})
+  : null;
+
+function countWordsMultilingual(text){
+  const value=String(text || "");
+  if(wordSegmenter){
+    let n=0;
+    for(const part of wordSegmenter.segment(value)){
+      if(part.isWordLike) n++;
+    }
+    return n;
+  }
+
+  const matches=value.match(/[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}\p{Script=Hangul}]|[\p{L}\p{N}]+/gu);
+  return matches ? matches.length : 0;
+}
+
+function countCharactersMultilingual(text){
+  const value=String(text || "");
+  if(graphemeSegmenter){
+    let n=0;
+    for(const part of graphemeSegmenter.segment(value)){
+      if(!/^\s+$/u.test(part.segment)) n++;
+    }
+    return n;
+  }
+  return [...value].filter(ch=>!/\s/u.test(ch)).length;
+}
+
+function updateCounts(plainText){
+  wordCount.textContent=`Words ${countWordsMultilingual(plainText)}`;
+  charCount.textContent=`Characters ${countCharactersMultilingual(plainText)}`;
 }
 function formatTime(ms){
   if(!ms) return "";
@@ -782,7 +1028,7 @@ function visibleEntries(){
     .filter(e => currentView==="trash" ? e.trashed : !e.trashed)
     .sort((a,b)=>(a.order??0)-(b.order??0));
 }
-function setSync(text){ syncLine.textContent="Encrypted · "+text+" · v1.4.2"; }
+function setSync(text){ syncLine.textContent="Encrypted · "+text+" · v1.5"; }
 
 function timestampToMs(value){
   if(!value) return 0;
@@ -865,12 +1111,16 @@ function hardLock(){
   if(saveTimer){ clearTimeout(saveTimer); saveTimer=null; }
   masterKey=null;
   currentDraft="";
+  currentTitle="";
+  savedEditorRange=null;
   dirty=false;
   currentEntryId=null;
   entries.clear();
   decryptGeneration++;
   if(unsubscribeEntries){ unsubscribeEntries(); unsubscribeEntries=null; }
-  editorText.value="";
+  editorText.innerHTML="";
+  entryTitleInput.value="";
+  updateCounts("");
   hide(appView);
   show(unlockGate);
   setMsg(unlockMsg,"Locked.");
@@ -889,34 +1139,33 @@ async function enterApp(){
 }
 
 async function fetchCurrentBody(entry){
-  if(entry.bodyLoaded) return entry.body ?? "";
+  if(entry.bodyLoaded){
+    return {
+      title:entry.title || "",
+      bodyHtml:entry.body || "",
+      plainText:entry.plainText || ""
+    };
+  }
 
-  // Fast path: current ciphertext lives directly on the entry document,
-  // so remote listeners can decrypt immediately without a second Firestore read.
+  let payload={title:"",bodyHtml:"",plainText:""};
+
+  // Fast path: current ciphertext lives directly on the entry document.
   if(entry.latestIv && entry.latestCiphertext){
-    entry.body=await decryptPayload(entry.latestIv,entry.latestCiphertext);
-    entry.bodyLoaded=true;
-    return entry.body;
+    payload=await decryptPayload(entry.latestIv,entry.latestCiphertext);
+  }else if(entry.currentVersionId){
+    // Backward-compatible fallback for entries created by older versions.
+    const snap=await getDoc(versionRef(entry.id,entry.currentVersionId));
+    if(snap.exists()){
+      const d=snap.data();
+      payload=await decryptPayload(d.iv,d.ciphertext);
+    }
   }
 
-  // Backward-compatible fallback for entries created by v1.
-  if(!entry.currentVersionId){
-    entry.body="";
-    entry.bodyLoaded=true;
-    return "";
-  }
-
-  const snap=await getDoc(versionRef(entry.id,entry.currentVersionId));
-  if(!snap.exists()){
-    entry.body="";
-    entry.bodyLoaded=true;
-    return "";
-  }
-
-  const d=snap.data();
-  entry.body=await decryptPayload(d.iv,d.ciphertext);
+  entry.title=payload.title;
+  entry.body=payload.bodyHtml;
+  entry.plainText=payload.plainText;
   entry.bodyLoaded=true;
-  return entry.body;
+  return payload;
 }
 
 function startEntriesListener(){
@@ -941,16 +1190,22 @@ function startEntriesListener(){
       const entry={
         id:ds.id,
         ...data,
+        title: prev?.title ?? "",
         body: prev?.body ?? "",
+        plainText: prev?.plainText ?? "",
         bodyLoaded: prev?.bodyLoaded ?? false
       };
 
       if(pointerChanged){
         if(ds.id===currentEntryId && dirty){
+          entry.title=prev?.title ?? currentTitle;
           entry.body=prev?.body ?? currentDraft;
+          entry.plainText=prev?.plainText ?? richHtmlToPlainText(currentDraft);
           entry.bodyLoaded=true;
         }else{
+          entry.title="";
           entry.body="";
+          entry.plainText="";
           entry.bodyLoaded=false;
         }
       }
@@ -968,10 +1223,13 @@ function startEntriesListener(){
       const e=entries.get(currentEntryId);
       if(e && !e.bodyLoaded){
         try{
-          const body=await fetchCurrentBody(e);
+          const payload=await fetchCurrentBody(e);
           if(currentEntryId===e.id && !dirty){
-            currentDraft=body;
-            editorText.value=body;
+            currentTitle=payload.title;
+            currentDraft=payload.bodyHtml;
+            entryTitleInput.value=currentTitle;
+            editorText.innerHTML=currentDraft;
+            updateCounts(payload.plainText);
             updateEditorHeader();
             renderList();
           }
@@ -1010,7 +1268,7 @@ async function renderList(){
     main.className="row-main";
     const title=document.createElement("div");
     title.className="row-title";
-    title.textContent=e.bodyLoaded ? titleFromBody(e.body||"") : "Decrypting…";
+    title.textContent=e.bodyLoaded ? displayTitle(e) : "Decrypting…";
     const time=document.createElement("div");
     time.className="row-time";
     time.textContent=formatTime(e.clientUpdatedAt);
@@ -1025,8 +1283,8 @@ async function renderList(){
     copy.addEventListener("click",async ev=>{
       ev.stopPropagation();
       try{
-        const body=await fetchCurrentBody(e);
-        await navigator.clipboard.writeText(body);
+        const payload=await fetchCurrentBody(e);
+        await navigator.clipboard.writeText(payload.plainText);
         copy.textContent="✓"; setTimeout(()=>copy.textContent="Copy",700);
       }catch{}
     });
@@ -1076,14 +1334,22 @@ async function selectEntry(id){
   currentEntryId=id;
   const e=entries.get(id);
   if(!e) return;
-  currentDraft=await fetchCurrentBody(e);
+
+  const payload=await fetchCurrentBody(e);
+  currentTitle=payload.title;
+  currentDraft=payload.bodyHtml;
   dirty=false;
-  editorText.value=currentDraft;
-  show(editorText); hide(editorPlaceholder); show(editorActions);
+
+  entryTitleInput.value=currentTitle;
+  editorText.innerHTML=currentDraft;
+  updateCounts(payload.plainText);
+
+  show(editorWorkspace); hide(editorPlaceholder); show(editorActions);
   trashActiveBtn.textContent=e.trashed?"Restore":"Trash";
   updateEditorHeader();
   renderList();
   document.body.classList.add("editor-open");
+  savedEditorRange=null;
 }
 
 function updateEditorHeader(){
@@ -1092,14 +1358,16 @@ function updateEditorHeader(){
     editorTitle.textContent="No entry selected"; editorTime.textContent="";
     return;
   }
-  editorTitle.textContent=titleFromBody(currentDraft);
+  const livePlain=richHtmlToPlainText(currentDraft);
+  editorTitle.textContent=String(currentTitle || "").trim() || titleFromPlainText(livePlain);
   editorTime.textContent=(dirty?"Unsaved · ":"")+formatTime(e.clientUpdatedAt);
 }
 
 function closeEditor(){
   closeHistory();
-  currentEntryId=null; currentDraft=""; dirty=false; editorText.value="";
-  hide(editorText); show(editorPlaceholder); hide(editorActions);
+  currentEntryId=null; currentDraft=""; currentTitle=""; dirty=false;
+  editorText.innerHTML=""; entryTitleInput.value=""; updateCounts("");
+  hide(editorWorkspace); show(editorPlaceholder); hide(editorActions);
   editorTitle.textContent="No entry selected"; editorTime.textContent="";
   document.body.classList.remove("editor-open");
   renderList();
@@ -1112,7 +1380,7 @@ async function createEntry(){
   const list=[...entries.values()].filter(e=>!e.trashed);
   const minOrder=list.length?Math.min(...list.map(e=>e.order??0)):1000;
   const order=minOrder-1000;
-  const enc=await encryptText("");
+  const enc=await encryptEntryPayload("","");
 
   const batch=writeBatch(db);
   batch.set(versionRef(id,versionId),{
@@ -1143,7 +1411,9 @@ async function createEntry(){
     trashed:false,
     clientCreatedAt:now,
     clientUpdatedAt:now,
+    title:"",
     body:"",
+    plainText:"",
     bodyLoaded:true
   });
   currentView="entries"; updateTabs();
@@ -1166,9 +1436,11 @@ async function flushSave(){
   const e=entries.get(id);
   if(!e) return;
 
-  const body=currentDraft;
+  const cleanHtml=sanitizeRichHtml(currentDraft);
+  const plainText=richHtmlToPlainText(cleanHtml);
+  const title=currentTitle;
   const versionId=makeId(), now=Date.now();
-  const enc=await encryptText(body);
+  const enc=await encryptEntryPayload(title,cleanHtml);
   const batch=writeBatch(db);
 
   // Append-only encrypted revision: old versions are never overwritten.
@@ -1191,8 +1463,12 @@ async function flushSave(){
   e.latestIv=enc.iv;
   e.latestCiphertext=enc.ciphertext;
   e.clientUpdatedAt=now;
-  e.body=body;
+  e.title=title;
+  e.body=enc.payload.bodyHtml;
+  e.plainText=enc.payload.plainText;
   e.bodyLoaded=true;
+  currentDraft=enc.payload.bodyHtml;
+  updateCounts(enc.payload.plainText);
   updateEditorHeader();
   renderList();
 
@@ -1571,7 +1847,7 @@ function closeHistory(){
   selectedHistoryVersionId=null;
   historyBodyCache.clear();
   historyEntryId=null;
-  historyPreview.value="";
+  historyPreview.innerHTML="";
   historyPreviewMeta.textContent="Select a version.";
   historyCopyBtn.disabled=true;
   historyRestoreBtn.disabled=true;
@@ -1663,22 +1939,23 @@ async function selectHistoryVersion(versionId){
 
   selectedHistoryVersionId=versionId;
   renderHistoryList();
-  historyPreview.value="";
+  historyPreview.innerHTML="";
   historyPreviewMeta.textContent="Decrypting locally…";
   historyCopyBtn.disabled=true;
   historyRestoreBtn.disabled=true;
 
   try{
-    let body=historyBodyCache.get(versionId);
-    if(body===undefined){
-      body=await decryptPayload(v.iv,v.ciphertext);
-      historyBodyCache.set(versionId,body);
+    let payload=historyBodyCache.get(versionId);
+    if(payload===undefined){
+      payload=await decryptPayload(v.iv,v.ciphertext);
+      historyBodyCache.set(versionId,payload);
     }
 
     if(selectedHistoryVersionId!==versionId) return;
-    historyPreview.value=body;
+    historyPreview.innerHTML=payload.bodyHtml;
+    const titlePart=String(payload.title || "").trim() ? ` · ${payload.title.trim()}` : "";
     historyPreviewMeta.textContent=
-      (formatTime(versionTime(v)) || "Unknown time")+" · "+historyReasonLabel(v.reason);
+      (formatTime(versionTime(v)) || "Unknown time")+" · "+historyReasonLabel(v.reason)+titlePart;
     historyCopyBtn.disabled=false;
     historyRestoreBtn.disabled=false;
   }catch(err){
@@ -1689,8 +1966,8 @@ async function selectHistoryVersion(versionId){
 
 async function restoreSelectedHistory(){
   if(!historyEntryId || !selectedHistoryVersionId || !masterKey) return;
-  const body=historyBodyCache.get(selectedHistoryVersionId);
-  if(body===undefined) return;
+  const payload=historyBodyCache.get(selectedHistoryVersionId);
+  if(payload===undefined) return;
 
   const id=historyEntryId;
   const e=entries.get(id);
@@ -1701,7 +1978,7 @@ async function restoreSelectedHistory(){
 
   try{
     const versionId=makeId(), now=Date.now();
-    const enc=await encryptText(body);
+    const enc=await encryptEntryPayload(payload.title,payload.bodyHtml);
     const batch=writeBatch(db);
 
     // Restore is non-destructive: create a brand-new encrypted version.
@@ -1731,12 +2008,17 @@ async function restoreSelectedHistory(){
     e.latestIv=enc.iv;
     e.latestCiphertext=enc.ciphertext;
     e.clientUpdatedAt=now;
-    e.body=body;
+    e.title=payload.title;
+    e.body=enc.payload.bodyHtml;
+    e.plainText=enc.payload.plainText;
     e.bodyLoaded=true;
 
     if(currentEntryId===id){
-      currentDraft=body;
-      editorText.value=body;
+      currentTitle=payload.title;
+      currentDraft=enc.payload.bodyHtml;
+      entryTitleInput.value=currentTitle;
+      editorText.innerHTML=currentDraft;
+      updateCounts(enc.payload.plainText);
       dirty=false;
       updateEditorHeader();
     }
@@ -1795,7 +2077,7 @@ async function exportEncryptedBackup(){
     const payload={
       format:"private-journal-encrypted-backup",
       formatVersion:1,
-      appVersion:"1.4.2",
+      appVersion:"1.5",
       exportedAt:new Date().toISOString(),
       note:"Journal plaintext, Journal Passphrase, and Recovery Key are not included. Entry ciphertext and encrypted version history are included.",
       cryptoConfig:portableValue(cfgSnap.data()),
@@ -1835,9 +2117,9 @@ for(const eventName of ["wheel","touchmove"]){
 historyBtn.addEventListener("click",openHistory);
 historyCopyBtn.addEventListener("click",async()=>{
   if(!selectedHistoryVersionId) return;
-  const body=historyBodyCache.get(selectedHistoryVersionId);
-  if(body===undefined) return;
-  await navigator.clipboard.writeText(body);
+  const payload=historyBodyCache.get(selectedHistoryVersionId);
+  if(payload===undefined) return;
+  await navigator.clipboard.writeText(payload.plainText);
   historyCopyBtn.textContent="Copied ✓";
   setTimeout(()=>historyCopyBtn.textContent="Copy version",800);
 });
@@ -1912,16 +2194,105 @@ newEntryBtn.addEventListener("click",createEntry);
 lockBtn.addEventListener("click",async()=>{try{await flushSave()}finally{hardLock()}});
 mobileBackBtn.addEventListener("click",async()=>{await flushSave();document.body.classList.remove("editor-open")});
 
-editorText.addEventListener("input",()=>{
-  currentDraft=editorText.value;
+function rememberEditorSelection(){
+  const sel=window.getSelection();
+  if(!sel || !sel.rangeCount) return;
+  const range=sel.getRangeAt(0);
+  if(editorText.contains(range.commonAncestorContainer)){
+    savedEditorRange=range.cloneRange();
+  }
+}
+
+function restoreEditorSelection(){
+  if(!savedEditorRange) return;
+  const sel=window.getSelection();
+  if(!sel) return;
+  try{
+    sel.removeAllRanges();
+    sel.addRange(savedEditorRange);
+  }catch{}
+}
+
+document.addEventListener("selectionchange",rememberEditorSelection);
+
+function handleEditorInput(){
+  currentDraft=editorText.innerHTML;
+  const plainText=richHtmlToPlainText(currentDraft);
   const e=currentEntryId?entries.get(currentEntryId):null;
-  if(e){e.body=currentDraft;e.bodyLoaded=true}
-  scheduleSave();renderList();
-});
+  if(e){
+    e.title=currentTitle;
+    e.body=currentDraft;
+    e.plainText=plainText;
+    e.bodyLoaded=true;
+  }
+  updateCounts(plainText);
+  scheduleSave();
+  renderList();
+}
+
+editorText.addEventListener("input",handleEditorInput);
 editorText.addEventListener("blur",()=>flushSave());
 
+entryTitleInput.addEventListener("input",()=>{
+  currentTitle=entryTitleInput.value;
+  const e=currentEntryId?entries.get(currentEntryId):null;
+  if(e) e.title=currentTitle;
+  scheduleSave();
+  renderList();
+});
+
+// Paste external content as plain text so fonts/colors/links cannot enter the journal.
+editorText.addEventListener("paste",event=>{
+  event.preventDefault();
+  const plain=event.clipboardData?.getData("text/plain") || "";
+  const sel=window.getSelection();
+  if(!sel || !sel.rangeCount) return;
+
+  const range=sel.getRangeAt(0);
+  range.deleteContents();
+
+  const frag=document.createDocumentFragment();
+  const lines=plain.split(/\r?\n/);
+  lines.forEach((line,index)=>{
+    if(index>0) frag.appendChild(document.createElement("br"));
+    frag.appendChild(document.createTextNode(line));
+  });
+
+  const last=frag.lastChild;
+  range.insertNode(frag);
+  if(last){
+    range.setStartAfter(last);
+    range.collapse(true);
+    sel.removeAllRanges();
+    sel.addRange(range);
+  }
+  handleEditorInput();
+});
+
+// Browser editing commands are intentionally limited to the five requested formats.
+formatToolbar.addEventListener("pointerdown",event=>{
+  const button=event.target.closest("[data-command]");
+  if(!button) return;
+  event.preventDefault();
+
+  editorText.focus();
+  restoreEditorSelection();
+  const command=button.dataset.command;
+
+  try{
+    // Keep HTML semantic rather than CSS-heavy where the browser supports it.
+    if(document.queryCommandSupported?.("styleWithCSS")){
+      document.execCommand("styleWithCSS",false,false);
+    }
+    document.execCommand(command,false,null);
+    handleEditorInput();
+  }catch(err){
+    console.warn("Formatting command failed:",command,err);
+  }
+});
+
 copyActiveBtn.addEventListener("click",async()=>{
-  await navigator.clipboard.writeText(currentDraft);
+  await navigator.clipboard.writeText(richHtmlToPlainText(currentDraft));
   copyActiveBtn.textContent="Copied ✓";setTimeout(()=>copyActiveBtn.textContent="Copy",800);
 });
 trashActiveBtn.addEventListener("click",()=>{
@@ -1988,7 +2359,7 @@ onAuthStateChanged(auth,async user=>{
   currentUser=user;
   masterKey=null;
   if(unsubscribeEntries){unsubscribeEntries();unsubscribeEntries=null}
-  entries.clear();currentEntryId=null;currentDraft="";dirty=false;
+  entries.clear();currentEntryId=null;currentDraft="";currentTitle="";dirty=false;
 
   if(!user){
     hide(unlockGate);hide(appView);show(authGate);
