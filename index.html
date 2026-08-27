@@ -190,11 +190,15 @@ input:focus,textarea:focus{border-color:var(--muted)}
 .editor-title{font-size:14px;font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .editor-time{font-size:11px;color:var(--muted);margin-top:3px}
 .editor-head-actions{
-  display:flex;align-items:center;gap:10px;flex-shrink:0
+  display:flex;flex-direction:column;align-items:flex-end;justify-content:center;
+  gap:3px;flex-shrink:0
 }
 .editor-actions{display:flex;gap:7px;flex-shrink:0}
+.editor-theme-row{
+  width:100%;display:flex;justify-content:flex-end
+}
 .editor-theme-toggle{
-  min-height:36px;padding:4px 2px
+  min-height:24px;padding:0 2px
 }
 .editor-body{flex:1;min-height:0;padding:0;display:flex;flex-direction:column}
 .editor-workspace{height:100%;min-height:0;display:flex;flex-direction:column}
@@ -209,13 +213,16 @@ input:focus,textarea:focus{border-color:var(--muted)}
 }
 .entry-title-input::placeholder{color:var(--muted);font-weight:650}
 .format-toolbar{
-  display:flex;
-  flex-direction:column;
+  display:grid;
+  grid-template-columns:minmax(0,1fr) auto;
   align-items:stretch;
-  gap:7px;
-  padding:8px clamp(20px,5vw,70px);
+  gap:16px;
+  padding:9px clamp(20px,5vw,70px);
   border-bottom:1px solid var(--border);
   background:var(--panel)
+}
+.format-controls{
+  min-width:0;display:flex;flex-direction:column;gap:7px
 }
 .format-row{
   display:flex;
@@ -226,6 +233,37 @@ input:focus,textarea:focus{border-color:var(--muted)}
 }
 .format-row.sizes{
   justify-content:flex-start
+}
+.format-row-tools .format-btn{
+  font-size:12px;
+  padding-inline:8px
+}
+.toolbar-stats{
+  align-self:center;
+  min-width:112px;
+  border:1px solid var(--border);
+  border-radius:10px;
+  background:var(--soft);
+  padding:9px 10px;
+  display:flex;
+  flex-direction:column;
+  gap:7px;
+  box-shadow:0 1px 0 rgba(0,0,0,.02)
+}
+.toolbar-stat{
+  display:flex;
+  align-items:baseline;
+  justify-content:space-between;
+  gap:12px;
+  color:var(--muted);
+  font-size:11px;
+  line-height:1.1
+}
+.toolbar-stat strong{
+  color:var(--text);
+  font-size:14px;
+  font-weight:850;
+  font-variant-numeric:tabular-nums
 }
 .format-btn{
   flex:0 0 auto;min-width:36px;min-height:34px;padding:6px 9px;
@@ -256,11 +294,27 @@ input:focus,textarea:focus{border-color:var(--muted)}
 .editor-text font[size="1"],.editor-text font[size="2"]{font-size:.86em}
 .editor-text font[size="3"],.editor-text font[size="4"]{font-size:1em}
 .editor-text font[size="5"],.editor-text font[size="6"],.editor-text font[size="7"]{font-size:1.24em}
+.editor-text span[data-checkbox]{
+  display:inline-block;
+  min-width:1.15em;
+  color:var(--text);
+  cursor:pointer;
+  user-select:none;
+  -webkit-user-select:none;
+  font-weight:750
+}
+.editor-text span[data-checkbox="checked"]{color:var(--muted)}
 .editor-footer{
   min-height:34px;padding:7px clamp(20px,5vw,70px);
   border-top:1px solid var(--border);background:var(--panel);
   display:flex;align-items:center;justify-content:flex-end;gap:12px;
   color:var(--muted);font-size:11px
+}
+.editor-footer strong{
+  color:var(--text);
+  font-weight:850;
+  font-size:inherit;
+  font-variant-numeric:tabular-nums
 }
 .placeholder{
   height:100%;display:grid;place-items:center;color:var(--muted);font-size:13px;text-align:center;padding:30px
@@ -445,8 +499,21 @@ body.paste-open{overflow:hidden;overscroll-behavior:none}
   body.editor-open .editor{display:flex}
   .mobile-back{display:inline-block}
   .editor-head{gap:8px}
-  .editor-head-actions{gap:7px}
+  .editor-head-actions{gap:3px}
   .editor-theme-toggle{font-size:11.5px}
+  .format-toolbar{
+    grid-template-columns:minmax(0,1fr) auto;
+    gap:9px;
+    padding-left:12px;
+    padding-right:12px
+  }
+  .format-controls{gap:6px}
+  .format-row{gap:5px;overflow-x:auto;scrollbar-width:none}
+  .format-row::-webkit-scrollbar{display:none}
+  .format-row-tools .format-btn{padding-inline:7px}
+  .toolbar-stats{min-width:94px;padding:8px}
+  .toolbar-stat{gap:7px}
+  .toolbar-stat strong{font-size:13px}
   .app{height:100dvh}
   .history-card{height:94dvh}
   .history-grid{grid-template-columns:1fr;grid-template-rows:210px minmax(0,1fr)}
@@ -538,11 +605,13 @@ body.paste-open{overflow:hidden;overscroll-behavior:none}
         <div id="editorTime" class="editor-time"></div>
       </div>
       <div class="editor-head-actions">
-        <button class="theme-toggle editor-theme-toggle" type="button" data-theme-toggle>◐ System</button>
         <div id="editorActions" class="editor-actions hidden">
           <button id="historyBtn" class="icon-btn">History</button>
           <button id="copyActiveBtn" class="icon-btn">Copy</button>
           <button id="trashActiveBtn" class="icon-btn">Trash</button>
+        </div>
+        <div class="editor-theme-row">
+          <button class="theme-toggle editor-theme-toggle" type="button" data-theme-toggle>◐ System</button>
         </div>
       </div>
     </header>
@@ -556,17 +625,33 @@ body.paste-open{overflow:hidden;overscroll-behavior:none}
         </div>
 
         <div id="formatToolbar" class="format-toolbar" role="toolbar" aria-label="Simple formatting">
-          <div class="format-row">
-            <button class="format-btn" type="button" data-command="bold" title="Bold"><strong>B</strong></button>
-            <button class="format-btn" type="button" data-command="italic" title="Italic"><span class="fmt-i">I</span></button>
-            <button class="format-btn" type="button" data-command="underline" title="Underline"><span class="fmt-u">U</span></button>
-            <button class="format-btn" type="button" data-command="strikeThrough" title="Strikethrough"><span class="fmt-s">S</span></button>
-            <button class="format-btn" type="button" data-command="insertUnorderedList" title="Bullet list">• List</button>
+          <div class="format-controls">
+            <div class="format-row">
+              <button class="format-btn" type="button" data-command="bold" title="Bold"><strong>B</strong></button>
+              <button class="format-btn" type="button" data-command="italic" title="Italic"><span class="fmt-i">I</span></button>
+              <button class="format-btn" type="button" data-command="underline" title="Underline"><span class="fmt-u">U</span></button>
+              <button class="format-btn" type="button" data-command="strikeThrough" title="Strikethrough"><span class="fmt-s">S</span></button>
+            </div>
+            <div class="format-row sizes">
+              <button class="format-btn size-small" type="button" data-size="small" title="Small text">Small</button>
+              <button class="format-btn size-normal" type="button" data-size="normal" title="Normal text">Normal</button>
+              <button class="format-btn size-large" type="button" data-size="large" title="Large text">Large</button>
+            </div>
+            <div class="format-row format-row-tools">
+              <button class="format-btn" type="button" data-command="insertUnorderedList" title="Bullet list">• List</button>
+              <button class="format-btn" type="button" data-action="checkbox" title="Insert checkbox">☑ Checkbox</button>
+              <button class="format-btn" type="button" data-action="timestamp" title="Insert timestamp">Timestamp</button>
+            </div>
           </div>
-          <div class="format-row sizes">
-            <button class="format-btn size-small" type="button" data-size="small" title="Small text">Small</button>
-            <button class="format-btn size-normal" type="button" data-size="normal" title="Normal text">Normal</button>
-            <button class="format-btn size-large" type="button" data-size="large" title="Large text">Large</button>
+          <div class="toolbar-stats" aria-label="Live writing statistics">
+            <div class="toolbar-stat">
+              <span>Words</span>
+              <strong id="toolbarWordCount">0</strong>
+            </div>
+            <div class="toolbar-stat">
+              <span>Characters</span>
+              <strong id="toolbarCharCount">0</strong>
+            </div>
           </div>
         </div>
 
@@ -576,8 +661,8 @@ body.paste-open{overflow:hidden;overscroll-behavior:none}
         </div>
 
         <div class="editor-footer">
-          <span id="wordCount">Words 0</span>
-          <span id="charCount">Characters 0</span>
+          <span>Words <strong id="wordCount">0</strong></span>
+          <span>Characters <strong id="charCount">0</strong></span>
         </div>
       </div>
     </div>
@@ -836,6 +921,7 @@ const syncLine = $("syncLine"), entryList = $("entryList"), editorTitle = $("edi
 const editorText = $("editorText"), editorPlaceholder = $("editorPlaceholder"), editorActions = $("editorActions");
 const editorWorkspace = $("editorWorkspace"), entryTitleInput = $("entryTitleInput"), formatToolbar = $("formatToolbar");
 const wordCount = $("wordCount"), charCount = $("charCount");
+const toolbarWordCount = $("toolbarWordCount"), toolbarCharCount = $("toolbarCharCount");
 const pasteModal = $("pasteModal"), pasteFormattedBtn = $("pasteFormattedBtn"), pastePlainBtn = $("pastePlainBtn"), pasteCancelBtn = $("pasteCancelBtn");
 const historyBtn = $("historyBtn"), copyActiveBtn = $("copyActiveBtn"), trashActiveBtn = $("trashActiveBtn"), mobileBackBtn = $("mobileBackBtn");
 const historyModal = $("historyModal"), historySub = $("historySub"), historyList = $("historyList");
@@ -1031,6 +1117,17 @@ function sanitizeRichHtml(inputHtml){
         out.appendChild(cleanChildren(node));
       }
 
+      return wrapWithSize(out,sizeToken);
+    }
+
+    if(tag==="SPAN" && ["unchecked","checked"].includes(node.getAttribute("data-checkbox"))){
+      const state=node.getAttribute("data-checkbox");
+      const out=document.createElement("span");
+      out.dataset.checkbox=state;
+      out.setAttribute("contenteditable","false");
+      out.setAttribute("role","checkbox");
+      out.setAttribute("aria-checked",state==="checked" ? "true" : "false");
+      out.textContent=state==="checked" ? "☑" : "☐";
       return wrapWithSize(out,sizeToken);
     }
 
@@ -1308,8 +1405,12 @@ function countCharactersMultilingual(text){
 }
 
 function updateCounts(plainText){
-  wordCount.textContent=`Words ${countWordsMultilingual(plainText)}`;
-  charCount.textContent=`Characters ${countCharactersMultilingual(plainText)}`;
+  const words=countWordsMultilingual(plainText);
+  const chars=countCharactersMultilingual(plainText);
+  wordCount.textContent=String(words);
+  charCount.textContent=String(chars);
+  toolbarWordCount.textContent=String(words);
+  toolbarCharCount.textContent=String(chars);
 }
 function formatTime(ms){
   if(!ms) return "";
@@ -2599,15 +2700,109 @@ pasteModal.addEventListener("click",event=>{
   if(event.target===pasteModal) closePasteModal();
 });
 
+function editorSelectionRange(){
+  const selection=window.getSelection();
+  if(selection && selection.rangeCount){
+    const range=selection.getRangeAt(0);
+    const node=range.commonAncestorContainer;
+    const container=node.nodeType===Node.ELEMENT_NODE ? node : node.parentElement;
+    if(container && editorText.contains(container)) return range;
+  }
+
+  const range=document.createRange();
+  range.selectNodeContents(editorText);
+  range.collapse(false);
+  if(selection){
+    selection.removeAllRanges();
+    selection.addRange(range);
+  }
+  return range;
+}
+
+function insertNodeAtCaret(node){
+  editorText.focus();
+  const selection=window.getSelection();
+  const range=editorSelectionRange();
+  range.deleteContents();
+  range.insertNode(node);
+  range.setStartAfter(node);
+  range.collapse(true);
+  if(selection){
+    selection.removeAllRanges();
+    selection.addRange(range);
+  }
+}
+
+function insertCheckboxAtCaret(){
+  const box=document.createElement("span");
+  box.dataset.checkbox="unchecked";
+  box.setAttribute("contenteditable","false");
+  box.setAttribute("role","checkbox");
+  box.setAttribute("aria-checked","false");
+  box.textContent="☐";
+  insertNodeAtCaret(box);
+
+  const selection=window.getSelection();
+  if(selection && selection.rangeCount){
+    const range=selection.getRangeAt(0);
+    const space=document.createTextNode("\u00A0");
+    range.insertNode(space);
+    range.setStartAfter(space);
+    range.collapse(true);
+    selection.removeAllRanges();
+    selection.addRange(range);
+  }
+}
+
+function formatJournalTimestamp(date=new Date()){
+  const months=["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+  const day=date.getDate();
+  const month=months[date.getMonth()];
+  const year=date.getFullYear();
+  const hours24=date.getHours();
+  const period=hours24>=12 ? "PM" : "AM";
+  const hours12=hours24%12 || 12;
+  const hh=String(hours12).padStart(2,"0");
+  const mm=String(date.getMinutes()).padStart(2,"0");
+  return `${day} ${month} ${year} · ${hh}:${mm} ${period}`;
+}
+
+function insertTextAtCaret(text){
+  editorText.focus();
+  const selection=window.getSelection();
+  const range=editorSelectionRange();
+  range.deleteContents();
+  const node=document.createTextNode(String(text));
+  range.insertNode(node);
+  range.setStartAfter(node);
+  range.collapse(true);
+  if(selection){
+    selection.removeAllRanges();
+    selection.addRange(range);
+  }
+}
+
 // Editing is deliberately limited to the approved lightweight format set.
 formatToolbar.addEventListener("pointerdown",event=>{
-  const button=event.target.closest("[data-command],[data-size]");
+  const button=event.target.closest("[data-command],[data-size],[data-action]");
   if(!button) return;
   event.preventDefault();
 
   editorText.focus();
 
   try{
+    if(button.dataset.action==="checkbox"){
+      insertCheckboxAtCaret();
+      handleEditorInput();
+      return;
+    }
+
+    if(button.dataset.action==="timestamp"){
+      insertTextAtCaret(formatJournalTimestamp());
+      handleEditorInput();
+      return;
+    }
+
     if(button.dataset.size){
       const sizeMap={small:"2",normal:"3",large:"5"};
       document.execCommand("fontSize",false,sizeMap[button.dataset.size] || "3");
@@ -2626,6 +2821,18 @@ formatToolbar.addEventListener("pointerdown",event=>{
   }catch(err){
     console.warn("Formatting command failed:",button.dataset.command || button.dataset.size,err);
   }
+});
+
+editorText.addEventListener("click",event=>{
+  const box=event.target.closest?.("span[data-checkbox]");
+  if(!box || !editorText.contains(box)) return;
+
+  event.preventDefault();
+  const next=box.dataset.checkbox==="checked" ? "unchecked" : "checked";
+  box.dataset.checkbox=next;
+  box.setAttribute("aria-checked",next==="checked" ? "true" : "false");
+  box.textContent=next==="checked" ? "☑" : "☐";
+  handleEditorInput();
 });
 
 copyActiveBtn.addEventListener("click",async()=>{
