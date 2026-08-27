@@ -189,7 +189,13 @@ input:focus,textarea:focus{border-color:var(--muted)}
 .editor-meta{min-width:0}
 .editor-title{font-size:14px;font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .editor-time{font-size:11px;color:var(--muted);margin-top:3px}
+.editor-head-actions{
+  display:flex;align-items:center;gap:10px;flex-shrink:0
+}
 .editor-actions{display:flex;gap:7px;flex-shrink:0}
+.editor-theme-toggle{
+  min-height:36px;padding:4px 2px
+}
 .editor-body{flex:1;min-height:0;padding:0;display:flex;flex-direction:column}
 .editor-workspace{height:100%;min-height:0;display:flex;flex-direction:column}
 .entry-title-wrap{
@@ -438,6 +444,9 @@ body.paste-open{overflow:hidden;overscroll-behavior:none}
   body.editor-open .sidebar{display:none}
   body.editor-open .editor{display:flex}
   .mobile-back{display:inline-block}
+  .editor-head{gap:8px}
+  .editor-head-actions{gap:7px}
+  .editor-theme-toggle{font-size:11.5px}
   .app{height:100dvh}
   .history-card{height:94dvh}
   .history-grid{grid-template-columns:1fr;grid-template-rows:210px minmax(0,1fr)}
@@ -528,10 +537,13 @@ body.paste-open{overflow:hidden;overscroll-behavior:none}
         <div id="editorTitle" class="editor-title">No entry selected</div>
         <div id="editorTime" class="editor-time"></div>
       </div>
-      <div id="editorActions" class="editor-actions hidden">
-        <button id="historyBtn" class="icon-btn">History</button>
-        <button id="copyActiveBtn" class="icon-btn">Copy</button>
-        <button id="trashActiveBtn" class="icon-btn">Trash</button>
+      <div class="editor-head-actions">
+        <button class="theme-toggle editor-theme-toggle" type="button" data-theme-toggle>◐ System</button>
+        <div id="editorActions" class="editor-actions hidden">
+          <button id="historyBtn" class="icon-btn">History</button>
+          <button id="copyActiveBtn" class="icon-btn">Copy</button>
+          <button id="trashActiveBtn" class="icon-btn">Trash</button>
+        </div>
       </div>
     </header>
     <div class="editor-body">
