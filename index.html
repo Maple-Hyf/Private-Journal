@@ -28,6 +28,13 @@
 
   const themeMeta = document.querySelector('meta[name="theme-color"]');
   if (themeMeta) themeMeta.content = effective === "dark" ? "#151514" : "#f4f4f1";
+
+  let freezeMode = "normal";
+  try {
+    const savedFreeze = localStorage.getItem("private-journal-editor-freeze");
+    if (savedFreeze === "frozen" || savedFreeze === "normal") freezeMode = savedFreeze;
+  } catch {}
+  document.documentElement.dataset.editorFreeze = freezeMode;
 })();
 </script>
 <title>Private Journal v1.6.1 — Two-row Toolbar</title>
@@ -60,9 +67,16 @@ button{cursor:pointer}
   justify-content:flex-end;
   align-items:center;
 }
+.preference-row{
+  display:flex;
+  justify-content:flex-end;
+  align-items:center;
+  gap:12px;
+}
 .gate-theme-row{margin-bottom:8px}
 .sidebar-theme-row{margin-top:7px}
-.theme-toggle{
+.theme-toggle,
+.freeze-toggle{
   min-height:30px;
   border:0;
   background:transparent;
@@ -72,13 +86,44 @@ button{cursor:pointer}
   font-weight:700;
   white-space:nowrap;
 }
-.theme-toggle:hover{color:var(--text)}
-.theme-toggle:active{opacity:.7}
+.theme-toggle:hover,
+.freeze-toggle:hover{color:var(--text)}
+.theme-toggle:active,
+.freeze-toggle:active{opacity:.7}
 
 body.modal-open{
   overflow:hidden;
   overscroll-behavior:none;
   touch-action:none;
+}
+
+/* Frozen editor mode: preserve the normal layout; only the journal body scrolls. */
+html[data-editor-freeze="frozen"] body{
+  overflow:hidden;
+  overscroll-behavior:none;
+}
+html[data-editor-freeze="frozen"] .app{
+  height:100%;
+  min-height:0;
+  overflow:hidden;
+}
+html[data-editor-freeze="frozen"] .sidebar,
+html[data-editor-freeze="frozen"] .editor{
+  min-height:0;
+  overflow:hidden;
+}
+html[data-editor-freeze="frozen"] .editor-body,
+html[data-editor-freeze="frozen"] .editor-workspace{
+  min-height:0;
+  overflow:hidden;
+}
+html[data-editor-freeze="frozen"] .editor-scroll{
+  flex:1 1 auto;
+  min-height:0;
+  overflow-y:auto;
+  overflow-x:hidden;
+  overscroll-behavior:contain;
+  -webkit-overflow-scrolling:touch;
 }
 
 /* Gate */
@@ -197,7 +242,8 @@ input:focus,textarea:focus{border-color:var(--muted)}
 .editor-theme-row{
   width:100%;display:flex;justify-content:flex-end
 }
-.editor-theme-toggle{
+.editor-theme-toggle,
+.editor-freeze-toggle{
   min-height:24px;padding:0 2px
 }
 .editor-body{flex:1;min-height:0;padding:0;display:flex;flex-direction:column}
@@ -500,7 +546,8 @@ body.paste-open{overflow:hidden;overscroll-behavior:none}
   .mobile-back{display:inline-block}
   .editor-head{gap:8px}
   .editor-head-actions{gap:3px}
-  .editor-theme-toggle{font-size:11.5px}
+  .editor-theme-toggle,
+  .editor-freeze-toggle{font-size:11.5px}
   .format-toolbar{
     grid-template-columns:minmax(0,1fr) auto;
     gap:9px;
@@ -515,6 +562,7 @@ body.paste-open{overflow:hidden;overscroll-behavior:none}
   .toolbar-stat{gap:7px}
   .toolbar-stat strong{font-size:13px}
   .app{height:100dvh}
+  html[data-editor-freeze="frozen"] .app{height:100dvh}
   .history-card{height:94dvh}
   .history-grid{grid-template-columns:1fr;grid-template-rows:210px minmax(0,1fr)}
   .history-list{border-right:0;border-bottom:1px solid var(--border)}
@@ -552,7 +600,7 @@ body.paste-open{overflow:hidden;overscroll-behavior:none}
       <label for="passphraseInput">Journal Passphrase</label>
       <input id="passphraseInput" type="password" autocomplete="current-password">
       <div class="actions">
-        <button id="unlockBtn" class="btn" disabled>Unlock</button>
+        <button id="unlockBtn" class="btn" disabled>🔓 Unlock</button>
         <button id="showRecoveryBtn" class="linkbtn">Use Recovery Key instead</button>
       </div>
     </div>
@@ -584,7 +632,8 @@ body.paste-open{overflow:hidden;overscroll-behavior:none}
           <button id="lockBtn" class="icon-btn lock-emphasis" title="Lock Journal">🔒 Lock</button>
         </div>
       </div>
-      <div class="theme-row sidebar-theme-row">
+      <div class="preference-row sidebar-theme-row">
+        <button class="freeze-toggle" type="button" data-freeze-toggle>↕ Normal</button>
         <button class="theme-toggle" type="button" data-theme-toggle>◐ System</button>
       </div>
       <button id="newEntryBtn" class="new-btn">+ New Entry</button>
@@ -610,7 +659,8 @@ body.paste-open{overflow:hidden;overscroll-behavior:none}
           <button id="copyActiveBtn" class="icon-btn">Copy</button>
           <button id="trashActiveBtn" class="icon-btn">Trash</button>
         </div>
-        <div class="editor-theme-row">
+        <div class="editor-theme-row preference-row">
+          <button class="freeze-toggle editor-freeze-toggle" type="button" data-freeze-toggle>↕ Normal</button>
           <button class="theme-toggle editor-theme-toggle" type="button" data-theme-toggle>◐ System</button>
         </div>
       </div>
@@ -871,6 +921,61 @@ body.paste-open{overflow:hidden;overscroll-behavior:none}
   }
 
   applyTheme(readMode(), false);
+})();
+</script>
+
+
+<script>
+(() => {
+  const FREEZE_KEY = "private-journal-editor-freeze";
+  const MODES = ["normal", "frozen"];
+  const LABELS = {
+    normal: "↕ Normal",
+    frozen: "📌 Frozen"
+  };
+  const buttons = [...document.querySelectorAll("[data-freeze-toggle]")];
+
+  function readMode() {
+    try {
+      const saved = localStorage.getItem(FREEZE_KEY);
+      return MODES.includes(saved) ? saved : "normal";
+    } catch {
+      return "normal";
+    }
+  }
+
+  function applyMode(mode, persist = false) {
+    if (!MODES.includes(mode)) mode = "normal";
+    document.documentElement.dataset.editorFreeze = mode;
+
+    for (const button of buttons) {
+      button.textContent = LABELS[mode];
+      button.setAttribute(
+        "aria-label",
+        mode === "frozen"
+          ? "Editor scrolling: frozen. Tap for normal scrolling."
+          : "Editor scrolling: normal. Tap to freeze controls."
+      );
+      button.title = mode === "frozen"
+        ? "Frozen: only the journal body scrolls"
+        : "Normal scrolling";
+    }
+
+    if (persist) {
+      try {
+        localStorage.setItem(FREEZE_KEY, mode);
+      } catch {}
+    }
+  }
+
+  for (const button of buttons) {
+    button.addEventListener("click", () => {
+      const current = document.documentElement.dataset.editorFreeze || readMode();
+      applyMode(current === "frozen" ? "normal" : "frozen", true);
+    });
+  }
+
+  applyMode(readMode(), false);
 })();
 </script>
 
