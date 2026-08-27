@@ -8,6 +8,28 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="Private Journal">
 <link rel="manifest" href="./manifest.webmanifest">
+<script>
+(() => {
+  const THEME_KEY = "private-journal-theme";
+  const MODES = ["system", "dark", "light"];
+
+  let mode = "system";
+  try {
+    const saved = localStorage.getItem(THEME_KEY);
+    if (MODES.includes(saved)) mode = saved;
+  } catch {}
+
+  const systemDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
+  const effective = mode === "system" ? (systemDark ? "dark" : "light") : mode;
+
+  document.documentElement.dataset.themeMode = mode;
+  document.documentElement.dataset.theme = effective;
+  document.documentElement.style.colorScheme = mode === "system" ? "light dark" : mode;
+
+  const themeMeta = document.querySelector('meta[name="theme-color"]');
+  if (themeMeta) themeMeta.content = effective === "dark" ? "#151514" : "#f4f4f1";
+})();
+</script>
 <title>Private Journal v1.6.1 — Two-row Toolbar</title>
 <style>
 :root{
@@ -33,6 +55,26 @@ body{
 button,input,textarea{font:inherit}
 button{cursor:pointer}
 .hidden{display:none!important}
+.theme-row{
+  display:flex;
+  justify-content:flex-end;
+  align-items:center;
+}
+.gate-theme-row{margin-bottom:8px}
+.sidebar-theme-row{margin-top:7px}
+.theme-toggle{
+  min-height:30px;
+  border:0;
+  background:transparent;
+  color:var(--muted);
+  padding:3px 0;
+  font-size:12px;
+  font-weight:700;
+  white-space:nowrap;
+}
+.theme-toggle:hover{color:var(--text)}
+.theme-toggle:active{opacity:.7}
+
 body.modal-open{
   overflow:hidden;
   overscroll-behavior:none;
@@ -410,6 +452,9 @@ body.paste-open{overflow:hidden;overscroll-behavior:none}
 
 <section id="authGate" class="gate">
   <div class="gate-card">
+    <div class="theme-row gate-theme-row">
+      <button class="theme-toggle" type="button" data-theme-toggle>◐ System</button>
+    </div>
     <div class="eyebrow">Private Journal</div>
     <h1>Private, encrypted, yours.</h1>
     <p>Journal text is encrypted in your browser before it is written to Firebase.</p>
@@ -420,6 +465,9 @@ body.paste-open{overflow:hidden;overscroll-behavior:none}
 
 <section id="unlockGate" class="gate hidden">
   <div class="gate-card">
+    <div class="theme-row gate-theme-row">
+      <button class="theme-toggle" type="button" data-theme-toggle>◐ System</button>
+    </div>
     <div class="eyebrow">Private Journal</div>
     <h1>Unlock Journal</h1>
     <p>Your Journal Passphrase is used locally to recover the master encryption key.</p>
@@ -459,6 +507,9 @@ body.paste-open{overflow:hidden;overscroll-behavior:none}
           <button id="backupBtn" class="icon-btn" title="Export encrypted backup">Backup</button>
           <button id="lockBtn" class="icon-btn lock-emphasis" title="Lock Journal">🔒 Lock</button>
         </div>
+      </div>
+      <div class="theme-row sidebar-theme-row">
+        <button class="theme-toggle" type="button" data-theme-toggle>◐ System</button>
       </div>
       <button id="newEntryBtn" class="new-btn">+ New Entry</button>
       <div class="tabs">
@@ -647,6 +698,84 @@ body.paste-open{overflow:hidden;overscroll-behavior:none}
     </div>
   </div>
 </div>
+
+<script>
+(() => {
+  const THEME_KEY = "private-journal-theme";
+  const MODES = ["system", "dark", "light"];
+  const LABELS = {
+    system: "◐ System",
+    dark: "☾ Dark",
+    light: "☀︎ Light"
+  };
+  const systemTheme = window.matchMedia("(prefers-color-scheme: dark)");
+  const buttons = [...document.querySelectorAll("[data-theme-toggle]")];
+  const themeMeta = document.querySelector('meta[name="theme-color"]');
+
+  function readMode() {
+    try {
+      const saved = localStorage.getItem(THEME_KEY);
+      return MODES.includes(saved) ? saved : "system";
+    } catch {
+      return "system";
+    }
+  }
+
+  function effectiveTheme(mode) {
+    return mode === "system"
+      ? (systemTheme.matches ? "dark" : "light")
+      : mode;
+  }
+
+  function applyTheme(mode, persist = false) {
+    if (!MODES.includes(mode)) mode = "system";
+
+    const effective = effectiveTheme(mode);
+
+    document.documentElement.dataset.themeMode = mode;
+    document.documentElement.dataset.theme = effective;
+    document.documentElement.style.colorScheme = mode === "system" ? "light dark" : mode;
+
+    if (themeMeta) {
+      themeMeta.content = effective === "dark" ? "#151514" : "#f4f4f1";
+    }
+
+    for (const button of buttons) {
+      button.textContent = LABELS[mode];
+      button.setAttribute("aria-label", `Theme: ${mode}. Tap to change.`);
+      button.title = `Theme: ${mode}`;
+    }
+
+    if (persist) {
+      try {
+        localStorage.setItem(THEME_KEY, mode);
+      } catch {}
+    }
+  }
+
+  for (const button of buttons) {
+    button.addEventListener("click", () => {
+      const current = document.documentElement.dataset.themeMode || readMode();
+      const next = MODES[(MODES.indexOf(current) + 1) % MODES.length];
+      applyTheme(next, true);
+    });
+  }
+
+  const onSystemThemeChange = () => {
+    if ((document.documentElement.dataset.themeMode || readMode()) === "system") {
+      applyTheme("system", false);
+    }
+  };
+
+  if (systemTheme.addEventListener) {
+    systemTheme.addEventListener("change", onSystemThemeChange);
+  } else if (systemTheme.addListener) {
+    systemTheme.addListener(onSystemThemeChange);
+  }
+
+  applyTheme(readMode(), false);
+})();
+</script>
 
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-app.js";
