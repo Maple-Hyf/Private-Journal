@@ -1,4 +1,4 @@
-const SHELL_CACHE = "private-journal-shell-v1.6.1-icon1";
+const SHELL_CACHE = "private-journal-shell-v1.6.1-icon2";
 const SHELL_FILES = [
   "./",
   "./index.html",
