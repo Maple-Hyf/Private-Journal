@@ -1,8 +1,12 @@
-const SHELL_CACHE = "private-journal-shell-v1.6.1-freeze1";
+const SHELL_CACHE = "private-journal-shell-v1.6.1-icon1";
 const SHELL_FILES = [
   "./",
   "./index.html",
-  "./manifest.webmanifest"
+  "./manifest.webmanifest",
+  "./favicon-32x32.png",
+  "./apple-touch-icon.png",
+  "./icon-192.png",
+  "./icon-512.png"
 ];
 
 self.addEventListener("install", event => {
